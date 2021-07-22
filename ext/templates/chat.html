@@ -1,0 +1,258 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+<link href="/static/chat.css" type="text/css" rel="stylesheet">
+<link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css" rel="stylesheet">
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
+<script>
+	var testsend = null;
+	var uuid = getCookie("uuid");
+	var loginid = getCookie("loginid");
+	var focusedUser = null;
+
+	function getlist(){
+		// get chatting lists
+		$.ajax({
+			type: "GET",
+			url: "/getlist",
+			dataType: "json",
+			error: function() {
+				return false;
+			},
+			success: function(datas) {
+				var appendHTML = "";
+				var cnt = 0;
+				for (var data of datas["result"]) {
+					var active_chat = "";
+					if (cnt == 0) { active_chat = "active_chat"; }
+					appendHTML += `<div class="chat_list ${data.id} ${active_chat}" onclick=getmessage("${data.id}")>
+		              <div class="chat_people">
+		                <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
+		                <div class="chat_ib">
+		                  <h5>${data.id}<span class="chat_date">${data.date}</span></h5>
+		                  <p>${data.text}</p>
+		                </div>
+		              </div>
+		            </div>
+		            `
+				  	cnt += 1;
+				}
+				$(".inbox_chat").html(appendHTML);
+				$(".active_chat").click();
+				return true;
+			}
+		});
+	}
+
+	function getDateStr(strdate){
+		date = new Date(strdate);
+		return `${date.getHours().toString().padStart(2,"0")}:${date.getMinutes().toString().padStart(2,"0")} | ${date.toDateString().split(" ")[1]} ${date.getDate()}`
+	}
+
+	function getRandomSID(){
+		var sid = ""
+		for(var i=0; i<32; i++){
+			sid += Math.floor(Math.random()*16).toString(16)
+		}
+		return sid
+	}
+
+	function appendMessages(data){
+		var appendHTML = "";			
+		var datestr = getDateStr(data.date)
+		
+		if (data.to == loginid && data.to != data.from){
+			appendHTML += `<div class="incoming_msg">
+              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
+              <div class="received_msg">
+                <div class="received_withd_msg">
+                  <p>${data.msg}</p>
+                  <span class="time_date"> ${datestr}</span></div>
+              </div>
+            </div>
+            `
+    } else if (data.from == loginid || data.from == data.to) {
+    	appendHTML += `<div class="outgoing_msg">
+          <div class="sent_msg">
+            <p>${data.msg}</p>
+            <span class="time_date"> ${datestr}</span> </div>
+        </div>
+        `
+    } else {
+    	console.log("[x] ?? what's going on?");
+    }
+	  	
+		
+		$(".msg_history").append(appendHTML);
+		$(".msg_history").scrollTop($(".msg_history")[0].scrollHeight);
+	}
+
+	function getchatmsg(id){
+		// get chatting messages
+		$.ajax({
+			type: "POST",
+			url: `/chat`,
+			dataType: "json",
+			data: {"mode":"getchatmsg","id":id},
+			error: function() {
+				return false;
+			},
+			success: function(datas) {
+				var appendHTML = "";
+				var cnt = 0;
+				
+				//var loginid = "arang"; // tmp mock data
+
+				for (var data of datas["result"]) {
+					var datestr = getDateStr(data.date)
+
+					if (data.from == loginid) {
+	        	appendHTML += `<div class="outgoing_msg">
+	              <div class="sent_msg">
+	                <p>${data.msg}</p>
+	                <span class="time_date"> ${datestr}</span> </div>
+	            </div>
+	            `
+	        } else if (data.to == loginid){
+						appendHTML += `<div class="incoming_msg">
+			              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
+			              <div class="received_msg">
+			                <div class="received_withd_msg">
+			                  <p>${data.msg}</p>
+			                  <span class="time_date"> ${datestr}</span></div>
+			              </div>
+			            </div>
+			            `
+	        }  else {
+	        	console.log("[x] ?? what's going on?");
+	        }
+				  	
+				}
+				$(".msg_history").html(appendHTML);
+				$(".msg_history").scrollTop($(".msg_history")[0].scrollHeight);
+				return true;
+			}
+		});
+	}
+
+	function getmessage(id){
+		focusedUser = id;
+		$(".active_chat").attr("class", $(".active_chat").attr("class").replace(" active_chat",""));
+		$(`.chat_list.${id}`).attr("class",`chat_list ${id} active_chat`);
+		if(getchatmsg(id) == false){
+			alert("getchatmsg error");
+		}
+		$("#sendto").val(id);
+	}
+
+  function getCookie(name) {
+      var value = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+      return value? value[2] : null;
+  }
+
+  function maketime(){
+  	var date = new Date().toISOString();
+  	var a = date.split('T')[0];
+  	var b = date.split('T')[1].split('.')[0];
+  	return `${a} ${b}`
+  }
+
+	window.onbeforeunload = function(e) {
+	  socket.disconnect();
+	};
+
+	$(document).ready(function(){
+		var sock = io.connect('ws://127.0.0.1:9090/');
+		
+		testsend = function(msg, to, from){
+			sock.emit("testsend", {"msg":msg, "to":to, "from":from})
+		}
+		sock.on('connect', function(){
+			var data = {'channel':uuid, 'loginid':loginid, 'server': '127.0.0.1:9092'};
+			sock.emit("join",data);
+		});
+
+		sock.on('join', function(data){
+			console.log(data)
+			if(data["result"] == "fail"){
+				alert("join room fail")
+			}
+		})
+
+		// when get a new chat message
+		sock.on('newchat', function(data){
+			console.log(data);
+			if(focusedUser == data.from){
+				appendMessages(data);
+			}
+		})
+
+		if(getlist() == false){
+			alert("getlist error");
+		}
+
+		$("#sendform").submit(function(event){
+			event.preventDefault();
+			var data = {
+				"date": maketime(),
+				"from": loginid,
+				"to": $("input[name=to]").val(),
+				"msg": $("input[name=msg]").val()
+			};
+			if(data["to"] == loginid){
+				data["sendtome"] = true;
+			}
+			//var data = '{"date": "2021-07-19 17:26:14", "from": "admin", "to": "guest", "msg": "asdfasdf", "sendtome": true}';
+			//var data = 'asdf asdfasdfsadfadsf sendtome';
+			sock.emit("chatsend", data);
+
+			$(".write_msg").val("");
+			getchatmsg(focusedUser)
+		})
+	});
+
+
+</script>
+</head>
+<body>
+<div class="container">
+<h3 class=" text-center">FSI CHAT SERVICE</h3>
+<div class="messaging">
+      <div class="inbox_msg">
+        <div class="inbox_people">
+          <div class="headind_srch">
+            <div class="recent_heading">
+              <h4>Recent</h4>
+            </div>
+          </div>
+          <div class="inbox_chat">
+            
+          </div>
+        </div>
+        <div class="mesgs">
+          <div class="msg_history">
+            
+           
+          </div>
+          <div class="type_msg">
+            <div class="input_msg_write">
+              <form id="sendform">
+                <input type="text" class="write_msg" name="msg" placeholder="Type a message" />
+                <input type="hidden" id="sendto" name="to" value="">
+                <button class="msg_send_btn" type="submit"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      
+      <!--p class="text-center top_spac"> Design by <a target="_blank" href="https://www.linkedin.com/in/sunil-rajput-nattho-singh/">Sunil Rajput</a></p-->
+      
+    </div></div>
+    </body>
+    </html>
