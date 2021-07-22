@@ -1,20 +1,25 @@
-#-*- coding: utf-8 -*-
-from flask import Flask, render_template, request as frequest, session, make_response
-from flask_socketio import SocketIO, send, emit, join_room, leave_room, rooms
+#-*- coding: latin-1 -*-
+# from flask import Flask, flask.render_template, request as flask.request, flask.session, flask.make_response
+# #from flask_socketio import SocketIO, send, emit, join_room, leave_room, rooms
+import flask_socketio
+import flask
 import requests, datetime, uuid, socket, json, threading
 import logging, traceback
+import concurrent.futures 
+from threading import Lock
 logging.basicConfig(level=logging.ERROR)
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 app.secret_key = "asdfasdfadsf"
-socket_io = SocketIO(app)
+socket_io = flask_socketio.SocketIO(app)
 chatdata = {}
 users = {}
 
+block = Lock()
 
 @app.route("/")
 def index():
-	return render_template("index.html")
+    return flask.render_template("index.html")
 
 @app.route("/getlist", methods=["GET"])
 def getlist():
@@ -36,12 +41,12 @@ def getlist():
 
 @app.route("/login", methods=["GET","POST"])
 def login():
-    if frequest.method == "GET":
+    if flask.request.method == "GET":
         ### tmp login 
-        session["id"] = frequest.args["id"]
-        loginID = session["id"]
-        session["uuid"] = str(uuid.uuid1())
-        users[loginID] = session["uuid"]
+        flask.session["id"] = flask.request.args["id"]
+        loginID = flask.session["id"]
+        flask.session["uuid"] = str(uuid.uuid1())
+        users[loginID] = flask.session["uuid"]
         chatdata[loginID] = {}
         chatdata["admin"] = {}
         chatdata["guest"] = {}
@@ -70,33 +75,33 @@ def login():
         chatdata["guest"][loginID] = {
             "result": []
         }
-        resp = make_response(render_template("login.html"))
+        resp = flask.make_response(flask.render_template("login.html"))
         resp.set_cookie('loginid', loginID)
-        resp.set_cookie('uuid', session["uuid"])
+        resp.set_cookie('uuid', flask.session["uuid"])
         return resp
     else:
         print("post-login")
-        return render_template("login.html")
+        return flask.render_template("login.html")
     
 @app.route("/register", methods=["GET","POST"])
 def register():
-    if frequest.method == "GET":
-        return render_template("register.html")
+    if flask.request.method == "GET":
+        return flask.render_template("register.html")
     else:
         print("post-register")
-        return render_template("register.html")
+        return flask.render_template("register.html")
 
 @app.route("/chat", methods=["GET","POST"])
 def chat():
-    if frequest.method == "GET":
-        return render_template("chat.html")
+    if flask.request.method == "GET":
+        return flask.render_template("chat.html")
 
     else:
-        if "mode" in frequest.form:
-            mode = frequest.form.get("mode")
+        if "mode" in flask.request.form:
+            mode = flask.request.form.get("mode")
             if mode == "getchatmsg":
-                loginID = session["id"]
-                chatFrom = frequest.form.get("id")
+                loginID = flask.session["id"]
+                chatFrom = flask.request.form.get("id")
                 if chatFrom not in chatdata[loginID]:
                     chatdata[loginID][chatFrom] = {
                         "result": []
@@ -118,63 +123,82 @@ def makechat(sendfrom, sendto, sendmsg):
 
 
 @socket_io.on("join")
-def request(data):
+def join(data):
     channel = data['channel']
     loginid = data['loginid']
     if users[loginid] == channel:
-        if 'server' in data:
-            server = data['server']
-            t = data['server'].split(':')
-            HOST, PORT = t[0], int(t[1])
+        if 'chatserver' in data:
+            chatserver = data['chatserver']
+            t = chatserver.split(':')
+            c = (t[0], int(t[1]))
         else:
-            HOST, PORT = '172.16.3.1','9092'
-        session["sock"] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-        session["sock"].connect((HOST,PORT))
+            c = ('172.16.3.1','9092')
+        print(c)
+        flask.session["sock"] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
+        flask.session["sock"].connect(c)
 
-        session["channel"] = channel
-        session["loginid"] = loginid
-        join_room(channel)
+        flask.session["channel"] = channel
+        flask.session["loginid"] = loginid
+        flask_socketio.join_room(channel)
         print("joined")
     else:
         print("joined fail")
-        emit("join",{"result":"fail"})
+        flask_socketio.emit("join",{"result":"fail"})
 
-def socksend(sock, data):
-    print(data)
-    result = b""
-    sock.send(data)
-    r = sock.recv(1024)
-    result += r
-    return result
+def socksend(sock, content):
+    r=""
+    try:
+        sock.send(content)
+        r = sock.recv(4096)
+        return json.loads(r)
+    except:
+        pass
+
+    return r
 
 @socket_io.on("chatsend")
-def requst(content):
+def chatsend(content):
     try:
         if type(content) != dict:
+            content = content.encode('latin-1')
             content = json.loads(content)
 
-        sendfrom = session["loginid"]
-        sendto = content["to"]
-        sendmsg = content["msg"]
-        
+        content["from"] = flask.session["loginid"]
+
         ### tmp database
-        chatdata[session["loginid"]][sendto]["result"].append(content)
-        chatdata[sendto][session["loginid"]]["result"].append(content)
+        chatdata[flask.session["loginid"]][content["to"]]["result"].append(content)
+        chatdata[content["to"]][flask.session["loginid"]]["result"].append(content)
         ###
-        #print(f"[{session['loginid']} -> {sendto}] send finish {chatdata}")
+
+        content = json.dumps(content).encode()+b"\n"
+        
     except Exception as e:
         print(str(e))
         logging.error(traceback.format_exc())
         pass
-    print(f"----{session}")
-    l = threading.Thread(target=socksend, args=(session["sock"], json.dumps(content).encode()+b"\n"))
-    l.start()
-    #print(f"send complete{users}")
-    if "sendtome" in content:
-        emit("newchat", content, room=users[session["loginid"]])
+
+    if b"sendtome" in content:
+        sendtome_flag = True
     else:
-        emit("newchat", content, room=users[sendto])
-    #print("real send complete!!!")
+        sendtome_flag = False
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as e:
+        f = e.submit(socksend, flask.session["sock"], content)
+        resp = f.result()
+        print(resp)
+
+    if type(resp) != dict:
+        resp = {"result": 0, "msg":resp}
+    else:
+        resp["result"] = 1
+
+    if sendtome_flag:
+        flask_socketio.emit("newchat", resp, room=users[flask.session["loginid"]])
+    else:
+        flask_socketio.emit("newchat", resp, room=users[resp["to"]])
+        flask_socketio.emit("newchat", resp, room=users[resp["from"]])
+        print(users[resp["to"]])
+        print(users[resp["from"]])
 
 
 @socket_io.on("testsend")
@@ -184,11 +208,11 @@ def testsend(data):
     sendto = data["to"]
     sendfrom = data["from"]
     chatdict = makechat(sendfrom, sendto, msg)
-    chatdata[sendfrom][session["loginid"]]["result"].append(chatdict)
-    chatdata[session["loginid"]][sendfrom]["result"].append(chatdict)
+    chatdata[sendfrom][flask.session["loginid"]]["result"].append(chatdict)
+    chatdata[flask.session["loginid"]][sendfrom]["result"].append(chatdict)
 
-    emit("newchat", chatdict, room=session["channel"])
-    emit("newchat", chatdict, room=users[sendto])
+    flask_socketio.emit("newchat", chatdict, room=flask.session["channel"])
+    flask_socketio.emit("newchat", chatdict, room=users[sendto])
     return "true"
 
 @socket_io.on("connect")
@@ -200,8 +224,8 @@ def connected():
 @socket_io.on("disconnect")
 def disconnected():
     print("disconnected")
-    session["sock"].close()
-    print(session["sock"])
+    flask.session["sock"].close()
+    print(flask.session["sock"])
 
 
 if __name__ == "__main__":

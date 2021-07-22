@@ -1,7 +1,8 @@
-#-*- coding: utf-8 -*-
+#-*- coding: latin-1 -*-
 import socketserver
 import pymysql
 import threading
+from arang import *
 
 lock = threading.Lock()
 
@@ -28,7 +29,7 @@ class chatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	pass
 
 if __name__ == "__main__":
-	HOST, PORT = "0.0.0.0", 9092
+	HOST, PORT = "0.0.0.0", 9091
 	server = chatServer((HOST,PORT), TCPHandler)
 	#server = socketserver.TCPServer((HOST, PORT), TCPHandler)
 

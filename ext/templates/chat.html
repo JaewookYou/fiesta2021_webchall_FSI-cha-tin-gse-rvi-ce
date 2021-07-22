@@ -161,23 +161,26 @@
   	return `${a} ${b}`
   }
 
-	window.onbeforeunload = function(e) {
-	  socket.disconnect();
-	};
+	
 
 	$(document).ready(function(){
 		var sock = io.connect('ws://127.0.0.1:9090/');
-		
+		window.onbeforeunload = function(e) {
+		  sock.disconnect();
+		};
+		/*
 		testsend = function(msg, to, from){
 			sock.emit("testsend", {"msg":msg, "to":to, "from":from})
 		}
+		*/
+
 		sock.on('connect', function(){
-			var data = {'channel':uuid, 'loginid':loginid, 'server': '127.0.0.1:9092'};
+			var data = {'channel':uuid, 'loginid':loginid, 'chatserver': '127.0.0.1:9091'};
 			sock.emit("join",data);
 		});
 
 		sock.on('join', function(data){
-			console.log(data)
+			console.log("[+] join "+data);
 			if(data["result"] == "fail"){
 				alert("join room fail")
 			}
@@ -185,8 +188,10 @@
 
 		// when get a new chat message
 		sock.on('newchat', function(data){
-			console.log(data);
-			if(focusedUser == data.from){
+			if(data.result == 0){
+				console.log("[x] err... "+data.msg);
+			}else if(data.result == 1 && focusedUser == data.from){
+				console.log(`[+] newchat ${data.from}->${data.to} : ${data.msg}`);
 				appendMessages(data);
 			}
 		})
@@ -206,13 +211,12 @@
 			if(data["to"] == loginid){
 				data["sendtome"] = true;
 			}
-			//var data = '{"date": "2021-07-19 17:26:14", "from": "admin", "to": "guest", "msg": "asdfasdf", "sendtome": true}';
-			//var data = 'asdf asdfasdfsadfadsf sendtome';
+			
 			sock.emit("chatsend", data);
-
+			
 			$(".write_msg").val("");
-			getchatmsg(focusedUser)
-		})
+				setTimeout(getchatmsg,300,focusedUser)
+			})
 	});
 
 
