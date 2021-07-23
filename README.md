@@ -104,3 +104,11 @@
 
 * 위와 같은 과정으로 raw packet 구성하여 보낼 시 **flag 획득!**
 * 자세한 exploit은 poc.js참조
+
+## 추후 구현사항
+
+ * mysql db 테이블 설계 및 구현 / init.sql 작성
+ * register / login 서비스 구현
+ * 외부망/내부망 서버 각각 file leak 고안
+ * front 작업
+ * dockerizing
