@@ -219,8 +219,6 @@ def testsend(data):
 def connected():
     print("connected")
 
-    #sock.close()
-
 @socket_io.on("disconnect")
 def disconnected():
     print("disconnected")

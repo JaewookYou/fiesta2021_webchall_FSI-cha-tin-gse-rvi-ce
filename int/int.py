@@ -23,8 +23,6 @@ class TCPHandler(socketserver.BaseRequestHandler):
 		print('{}:{} disconnected'.format(*self.client_address))
 
 
-
-
 class chatServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	pass
 
