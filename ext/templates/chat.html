@@ -175,7 +175,7 @@
 		*/
 
 		sock.on('connect', function(){
-			var data = {'channel':uuid, 'loginid':loginid, 'chatserver': '127.0.0.1:9091'};
+			var data = {'channel':uuid, 'loginid':loginid};
 			sock.emit("join",data);
 		});
 

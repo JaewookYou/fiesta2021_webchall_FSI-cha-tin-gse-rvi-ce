@@ -132,7 +132,7 @@ def join(data):
             t = chatserver.split(':')
             c = (t[0], int(t[1]))
         else:
-            c = ('172.16.3.1','9092')
+            c = ('127.0.0.1', 9091)
         print(c)
         flask.session["sock"] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
         flask.session["sock"].connect(c)
@@ -141,9 +141,15 @@ def join(data):
         flask.session["loginid"] = loginid
         flask_socketio.join_room(channel)
         print("joined")
+
+        chatdata["admin"][loginid] = {
+            "result": []
+        }
+
+        flask_socketio.emit("join",{"result":"success"}, room=channel)
     else:
         print("joined fail")
-        flask_socketio.emit("join",{"result":"fail"})
+        flask_socketio.emit("join",{"result":"fail"}, room=channel)
 
 def socksend(sock, content):
     r=""
@@ -156,6 +162,12 @@ def socksend(sock, content):
 
     return r
 
+def stopPool(e):
+    for pid, process in e._processes.items():
+        print(f"[+] {pid}:{process} killed..")
+        #e.terminate()
+    e.shutdown()
+
 @socket_io.on("chatsend")
 def chatsend(content):
     try:
@@ -165,6 +177,10 @@ def chatsend(content):
 
         content["from"] = flask.session["loginid"]
 
+        if flask.session["loginid"] not in chatdata[content["to"]]:
+            chatdata[content["to"]][flask.session["loginid"]] = {
+                "result": []
+            }
         ### tmp database
         chatdata[flask.session["loginid"]][content["to"]]["result"].append(content)
         chatdata[content["to"]][flask.session["loginid"]]["result"].append(content)
@@ -174,6 +190,7 @@ def chatsend(content):
         
     except Exception as e:
         print(str(e))
+        print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['loginid']}")
         logging.error(traceback.format_exc())
         pass
 
@@ -183,9 +200,15 @@ def chatsend(content):
         sendtome_flag = False
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=1) as e:
-        f = e.submit(socksend, flask.session["sock"], content)
-        resp = f.result()
-        print(resp)
+        try:
+            f = e.submit(socksend, flask.session["sock"], content)
+            resp = f.result()
+            print(resp)
+            stopPool(e)
+        except concurrent.futures._base.TimeoutError:
+            stopPool(e)
+        except:
+            stopPool(e)
 
     if type(resp) != dict:
         resp = {"result": 0, "msg":resp}
@@ -195,10 +218,14 @@ def chatsend(content):
     if sendtome_flag:
         flask_socketio.emit("newchat", resp, room=users[flask.session["loginid"]])
     else:
-        flask_socketio.emit("newchat", resp, room=users[resp["to"]])
+        try:
+            flask_socketio.emit("newchat", resp, room=users[resp["to"]])
+        except:
+            logging.error(traceback.format_exc())
+            print(f"[x] why!! {resp} -> {users}")
         flask_socketio.emit("newchat", resp, room=users[resp["from"]])
-        print(users[resp["to"]])
-        print(users[resp["from"]])
+        print(f'[+] chatsend - {users[resp["to"]]}')
+        print(f'[+] chatsend - {users[resp["from"]]}')
 
 
 @socket_io.on("testsend")
