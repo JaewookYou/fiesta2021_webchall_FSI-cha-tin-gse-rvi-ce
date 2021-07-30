@@ -39,13 +39,19 @@ def join(data):
 		print("[x] join room fail")
 	else:
 		joinflag = True
+		time.sleep(0.5)
 
 @sio.on('newchat')
 def newchat(data):
+	global cnt
 	if data["result"] == 0:
 		print(f"[x] err... {data['msg']}")
 	elif data["result"] == 1:
-		print(f"[+] newchat {data['from']}->{data['to']} : {data['msg']}")
+		print(f"[+] newchat {data['from']}->{data['to']} : {data['msg']}({cnt}/5)")
+	cnt += 1
+	if cnt > 5:
+		print(f"[+] end")
+		sio.disconnect()
 
 datas = {"channel":uuid, "loginid":loginid}
 sio.emit("join", datas)
@@ -54,18 +60,18 @@ cnt = 0
 while 1:
 	if joinflag:
 		date = datetime.datetime.strftime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S")
-		data = {"date":date,"from":loginid, "to":"admin", "msg":f"hahaasdfahahaasdfahahaas{date}"}
-		sio.emit("chatsend", data)
+		data = {"date":date,"from":loginid, "to":"admin", "msg":f"good {date} {sys.argv[1]}"}
+		try:
+			sio.emit("chatsend", data)
+		except:
+			exit(1)
 		time.sleep(0.1)
 	else:
 		time.sleep(1)
 
-	cnt += 1
+	
 
-	if cnt > 3:
-		print(f"[+] end")
-		sio.disconnect()
-		sys.exit()
+	
 
 
 

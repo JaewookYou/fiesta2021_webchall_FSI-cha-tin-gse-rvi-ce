@@ -146,10 +146,10 @@ def join(data):
             "result": []
         }
 
-        flask_socketio.emit("join",{"result":"success"}, room=channel)
+        sioemit("join",{"result":"success"}, channel)
     else:
         print("joined fail")
-        flask_socketio.emit("join",{"result":"fail"}, room=channel)
+        sioemit("join",{"result":"fail"}, channel)
 
 def socksend(sock, content):
     r=""
@@ -161,6 +161,15 @@ def socksend(sock, content):
         pass
 
     return r
+
+
+def sioemit(namespace, content, room=None):
+    if room:
+        flask_socketio.emit(namespace, content, room=room)
+    else:
+        flask_socketio.emit(namespace, content)
+    return
+
 
 def stopPool(e):
     for pid, process in e._processes.items():
@@ -199,33 +208,24 @@ def chatsend(content):
     else:
         sendtome_flag = False
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as e:
-        try:
-            f = e.submit(socksend, flask.session["sock"], content)
-            resp = f.result()
-            print(resp)
-            stopPool(e)
-        except concurrent.futures._base.TimeoutError:
-            stopPool(e)
-        except:
-            stopPool(e)
+
+    resp = socksend(flask.session["sock"], content)
 
     if type(resp) != dict:
         resp = {"result": 0, "msg":resp}
     else:
         resp["result"] = 1
 
-    if sendtome_flag:
-        flask_socketio.emit("newchat", resp, room=users[flask.session["loginid"]])
-    else:
-        try:
-            flask_socketio.emit("newchat", resp, room=users[resp["to"]])
-        except:
-            logging.error(traceback.format_exc())
-            print(f"[x] why!! {resp} -> {users}")
-        flask_socketio.emit("newchat", resp, room=users[resp["from"]])
-        print(f'[+] chatsend - {users[resp["to"]]}')
-        print(f'[+] chatsend - {users[resp["from"]]}')
+    try:
+        if sendtome_flag:
+            sioemit("newchat", resp, users[flask.session["loginid"]])
+        else:
+            sioemit("newchat", resp, users[resp["to"]])
+            sioemit("newchat", resp, users[resp["from"]])
+            print(f'[+] chatsend( to ) - {resp} {users[resp["to"]]}')
+            print(f'[+] chatsend(from) - {resp} {users[resp["from"]]}')
+    except:
+        logging.error(traceback.format_exc())
 
 
 @socket_io.on("testsend")
@@ -238,8 +238,8 @@ def testsend(data):
     chatdata[sendfrom][flask.session["loginid"]]["result"].append(chatdict)
     chatdata[flask.session["loginid"]][sendfrom]["result"].append(chatdict)
 
-    flask_socketio.emit("newchat", chatdict, room=flask.session["channel"])
-    flask_socketio.emit("newchat", chatdict, room=users[sendto])
+    sioemit("newchat", chatdict, flask.session["channel"])
+    sioemit("newchat", chatdict, users[sendto])
     return "true"
 
 @socket_io.on("connect")

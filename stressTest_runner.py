@@ -9,14 +9,16 @@ from threading import Lock
 logging.basicConfig(level=logging.ERROR)
 
 def target(x):
-	p = subprocess.Popen(['python3', 'stressTest.py'], stdout=sys.stdout, stderr=sys.stderr)
-	p.communicate()
+	try:
+		p = subprocess.run(['python3', 'stressTest.py', f'{x}'], stdout=sys.stdout, stderr=sys.stderr, timeout=5)
+	except subprocess.TimeoutExpired:
+		pass
 
-	return p.returncode
+	return x
 
 def go():
 	cnt = 1
-	workers = 8
+	workers = 32
 	
 	with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
 		try:

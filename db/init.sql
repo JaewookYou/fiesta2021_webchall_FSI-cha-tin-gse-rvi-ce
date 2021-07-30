@@ -1,15 +1,16 @@
 /*
  table user (
-    seq,
-    id,
+    primary key seq,
+    id, #중복불가
     pw,
-    selfiePath,
+    profileImagePath,
  )
 
+
  table chat (
-    seq,
-    from,
-    to,
+    primary key seq,
+    from foreign key (user.id),
+    to foreign key (user.id),
     date,
     msg
  )
