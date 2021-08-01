@@ -19,7 +19,7 @@ block = Lock()
 
 @app.route("/")
 def index():
-    return flask.render_template("index.html")
+    return flask.redirect(flask.url_for("login"))
 
 @app.route("/getlist", methods=["GET"])
 def getlist():
@@ -39,11 +39,47 @@ def getlist():
     }
     return data
 
+def doLoginQuery(sock, userid, userpw):
+    reqPacket = {
+        "command":"login",
+        "userid":userid,
+        "userpw":userpw
+    }
+    r="?"
+    #r = socksend(sock, reqPacket)
+    # return r
+
+
 @app.route("/login", methods=["GET","POST"])
 def login():
     if flask.request.method == "GET":
         ### tmp login 
-        flask.session["id"] = flask.request.args["id"]
+        
+        return flask.render_template("login.html")
+    else:
+        if "isLogin" in flask.session:
+            return flask.redirect(flask.url_for("chat"))
+
+        if "sock" in flask.session:
+            flask.session.pop("sock")
+
+        
+        t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
+
+        flask.session["sock"] = {}
+        flask.session["sock"]["s"] = t
+        print(flask.session)
+        return "123"
+        #flask.session["sock"] = t
+        
+        # flask.session["sock"].connect(("127.0.0.1",9091))
+
+        #doLoginQuery(flask.session["sock"], flask.request.form["uid"], flask.request.form["upw"])
+        
+        # print(f"[??]{r}")
+        # #return flask.render_template("login.html")
+
+        flask.session["id"] = flask.request.form["uid"]
         loginID = flask.session["id"]
         flask.session["uuid"] = str(uuid.uuid1())
         users[loginID] = flask.session["uuid"]
@@ -79,9 +115,6 @@ def login():
         resp.set_cookie('loginid', loginID)
         resp.set_cookie('uuid', flask.session["uuid"])
         return resp
-    else:
-        print("post-login")
-        return flask.render_template("login.html")
     
 @app.route("/register", methods=["GET","POST"])
 def register():
@@ -90,6 +123,11 @@ def register():
     else:
         print("post-register")
         return flask.render_template("register.html")
+
+@app.route("/logout")
+def logout():
+    flask.session.pop('isLogin', False)
+    return flask.redirect(flask.url_for("login"))
 
 @app.route("/chat", methods=["GET","POST"])
 def chat():
@@ -136,6 +174,7 @@ def join(data):
         print(c)
         flask.session["sock"] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
         flask.session["sock"].connect(c)
+        print(flask.session)
 
         flask.session["channel"] = channel
         flask.session["loginid"] = loginid
@@ -152,10 +191,12 @@ def join(data):
         sioemit("join",{"result":"fail"}, channel)
 
 def socksend(sock, content):
+    if type(content) == dict:
+        content = json.dumps(content).encode()+b"\n"
     r=""
     try:
         sock.send(content)
-        r = sock.recv(4096)
+        r = sock.recv(4096).decode()
         return json.loads(r)
     except:
         pass
@@ -198,9 +239,9 @@ def chatsend(content):
         content = json.dumps(content).encode()+b"\n"
         
     except Exception as e:
-        print(str(e))
-        print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['loginid']}")
-        logging.error(traceback.format_exc())
+        # print(str(e))
+        # print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['loginid']}")
+        # logging.error(traceback.format_exc())
         pass
 
     if b"sendtome" in content:
@@ -227,21 +268,6 @@ def chatsend(content):
     except:
         logging.error(traceback.format_exc())
 
-
-@socket_io.on("testsend")
-def testsend(data):
-    print(data)
-    msg = data["msg"]
-    sendto = data["to"]
-    sendfrom = data["from"]
-    chatdict = makechat(sendfrom, sendto, msg)
-    chatdata[sendfrom][flask.session["loginid"]]["result"].append(chatdict)
-    chatdata[flask.session["loginid"]][sendfrom]["result"].append(chatdict)
-
-    sioemit("newchat", chatdict, flask.session["channel"])
-    sioemit("newchat", chatdict, users[sendto])
-    return "true"
-
 @socket_io.on("connect")
 def connected():
     print("connected")
@@ -255,7 +281,6 @@ def disconnected():
 
 if __name__ == "__main__":
     try:
-        #app.run(host="0.0.0.0", port=9090, debug=True)
         socket_io.run(app, host="0.0.0.0", debug=True, port=9090)
     except Exception as ex:
         print(ex)

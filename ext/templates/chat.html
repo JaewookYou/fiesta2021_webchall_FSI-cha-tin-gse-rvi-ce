@@ -168,11 +168,6 @@
 		window.onbeforeunload = function(e) {
 		  sock.disconnect();
 		};
-		/*
-		testsend = function(msg, to, from){
-			sock.emit("testsend", {"msg":msg, "to":to, "from":from})
-		}
-		*/
 
 		sock.on('connect', function(){
 			var data = {'channel':uuid, 'loginid':loginid};
@@ -253,9 +248,6 @@
           </div>
         </div>
       </div>
-      
-      
-      <!--p class="text-center top_spac"> Design by <a target="_blank" href="https://www.linkedin.com/in/sunil-rajput-nattho-singh/">Sunil Rajput</a></p-->
       
     </div></div>
     </body>
