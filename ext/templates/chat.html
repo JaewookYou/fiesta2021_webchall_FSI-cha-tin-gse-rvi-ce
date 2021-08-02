@@ -11,7 +11,7 @@
 <script>
 	var testsend = null;
 	var uuid = getCookie("uuid");
-	var loginid = getCookie("loginid");
+	var userid = getCookie("userid");
 	var focusedUser = null;
 
 	function getlist(){
@@ -65,7 +65,7 @@
 		var appendHTML = "";			
 		var datestr = getDateStr(data.date)
 		
-		if (data.to == loginid && data.to != data.from){
+		if (data.to == userid && data.to != data.from){
 			appendHTML += `<div class="incoming_msg">
               <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
               <div class="received_msg">
@@ -75,7 +75,7 @@
               </div>
             </div>
             `
-    } else if (data.from == loginid || data.from == data.to) {
+    } else if (data.from == userid || data.from == data.to) {
     	appendHTML += `<div class="outgoing_msg">
           <div class="sent_msg">
             <p>${data.msg}</p>
@@ -105,19 +105,19 @@
 				var appendHTML = "";
 				var cnt = 0;
 				
-				//var loginid = "arang"; // tmp mock data
+				//var userid = "arang"; // tmp mock data
 
 				for (var data of datas["result"]) {
 					var datestr = getDateStr(data.date)
 
-					if (data.from == loginid) {
+					if (data.from == userid) {
 	        	appendHTML += `<div class="outgoing_msg">
 	              <div class="sent_msg">
 	                <p>${data.msg}</p>
 	                <span class="time_date"> ${datestr}</span> </div>
 	            </div>
 	            `
-	        } else if (data.to == loginid){
+	        } else if (data.to == userid){
 						appendHTML += `<div class="incoming_msg">
 			              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
 			              <div class="received_msg">
@@ -170,7 +170,7 @@
 		};
 
 		sock.on('connect', function(){
-			var data = {'channel':uuid, 'loginid':loginid};
+			var data = {'channel':uuid, 'userid':userid};
 			sock.emit("join",data);
 		});
 
@@ -199,11 +199,17 @@
 			event.preventDefault();
 			var data = {
 				"date": maketime(),
-				"from": loginid,
+				"from": userid,
 				"to": $("input[name=to]").val(),
 				"msg": $("input[name=msg]").val()
 			};
-			if(data["to"] == loginid){
+			
+			if(data.msg.length > 1000){
+				alert("[x] msg length is too long");
+				return false;
+			}
+
+			if(data["to"] == userid){
 				data["sendtome"] = true;
 			}
 			
@@ -220,6 +226,9 @@
 <body>
 <div class="container">
 <h3 class=" text-center">FSI CHAT SERVICE</h3>
+<div class="top_bar">
+	<a href="/logout">logout</a>
+</div>
 <div class="messaging">
       <div class="inbox_msg">
         <div class="inbox_people">
@@ -249,6 +258,6 @@
         </div>
       </div>
       
-    </div></div>
-    </body>
-    </html>
+</div></div>
+</body>
+</html>

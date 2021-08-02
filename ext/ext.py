@@ -45,83 +45,92 @@ def doLoginQuery(sock, userid, userpw):
         "userid":userid,
         "userpw":userpw
     }
-    r="?"
-    #r = socksend(sock, reqPacket)
-    # return r
+    r = socksend(sock, reqPacket)
+    return r
 
+def sessionCheck(loginCheck=False):   
+    if loginCheck:
+        if "isLogin" not in flask.session:
+            return False
+        else:
+            return True
+
+    if "isLogin" in flask.session:
+        return True
+
+    if "uuid" not in flask.session:
+        flask.session["uuid"] = str(uuid.uuid1())
+
+    if flask.session["uuid"] not in users:
+        print(f"[+] new socket conn {flask.session['uuid']}")
+        users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        users[flask.session["uuid"]].connect(("127.0.0.1",9091))
+
+    return False
 
 @app.route("/login", methods=["GET","POST"])
 def login():
     if flask.request.method == "GET":
-        ### tmp login 
-        
-        return flask.render_template("login.html")
-    else:
-        if "isLogin" in flask.session:
+        if sessionCheck(loginCheck=True):
             return flask.redirect(flask.url_for("chat"))
 
-        if "sock" in flask.session:
-            flask.session.pop("sock")
-
+        return flask.render_template("login.html")
+    else:
+        if sessionCheck():
+            return flask.redirect(flask.url_for("chat"))
         
-        t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-
-        flask.session["sock"] = {}
-        flask.session["sock"]["s"] = t
-        print(flask.session)
-        return "123"
-        #flask.session["sock"] = t
+        queryResult = doLoginQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"])
+        if "userid" in queryResult:
+            flask.session["userid"] = queryResult["userid"]
+            flask.session["isLogin"] = True
+            userid = flask.session["userid"]
+            chatdata[userid] = {}
+            chatdata["admin"] = {}
+            chatdata["guest"] = {}
+            chatdata["admin"][userid] = {
+                "result": []
+            }
+            chatdata[userid]["admin"] = {
+                "result": [
+                    {
+                        "from": userid,
+                        "to": "admin",
+                        "date": "2021-06-09 11:01:00",
+                        "msg": "hihihi"
+                    },
+                    {
+                        "from": "admin",
+                        "to": userid,
+                        "date": "2021-06-09 11:01:00",
+                        "msg": "asdfasdfasdfsadfasd"
+                    }
+                ]
+            }
+            chatdata[userid]["guest"] = {
+                "result": []
+            }
+            chatdata["guest"][userid] = {
+                "result": []
+            }
+            resp = flask.make_response(flask.redirect(flask.url_for("chat")))
+            resp.set_cookie('userid', userid)
+            resp.set_cookie('uuid', flask.session["uuid"])
+            return resp
+        else:
+            return "login failed"
         
-        # flask.session["sock"].connect(("127.0.0.1",9091))
-
-        #doLoginQuery(flask.session["sock"], flask.request.form["uid"], flask.request.form["upw"])
-        
-        # print(f"[??]{r}")
-        # #return flask.render_template("login.html")
-
-        flask.session["id"] = flask.request.form["uid"]
-        loginID = flask.session["id"]
-        flask.session["uuid"] = str(uuid.uuid1())
-        users[loginID] = flask.session["uuid"]
-        chatdata[loginID] = {}
-        chatdata["admin"] = {}
-        chatdata["guest"] = {}
-        chatdata["admin"][loginID] = {
-            "result": []
-        }
-        chatdata[loginID]["admin"] = {
-            "result": [
-                {
-                    "from": loginID,
-                    "to": "admin",
-                    "date": "2021-06-09 11:01:00",
-                    "msg": "hihihi"
-                },
-                {
-                    "from": "admin",
-                    "to": loginID,
-                    "date": "2021-06-09 11:01:00",
-                    "msg": "asdfasdfasdfsadfasd"
-                }
-            ]
-        }
-        chatdata[loginID]["guest"] = {
-            "result": []
-        }
-        chatdata["guest"][loginID] = {
-            "result": []
-        }
-        resp = flask.make_response(flask.render_template("login.html"))
-        resp.set_cookie('loginid', loginID)
-        resp.set_cookie('uuid', flask.session["uuid"])
-        return resp
     
 @app.route("/register", methods=["GET","POST"])
 def register():
     if flask.request.method == "GET":
+        if sessionCheck(loginCheck=True):
+            return flask.redirect(flask.url_for("chat"))
+            
         return flask.render_template("register.html")
     else:
-        print("post-register")
+        if sessionCheck():
+            return flask.redirect(flask.url_for("chat"))
+
         return flask.render_template("register.html")
 
 @app.route("/logout")
@@ -131,6 +140,9 @@ def logout():
 
 @app.route("/chat", methods=["GET","POST"])
 def chat():
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))        
+
     if flask.request.method == "GET":
         return flask.render_template("chat.html")
 
@@ -138,13 +150,13 @@ def chat():
         if "mode" in flask.request.form:
             mode = flask.request.form.get("mode")
             if mode == "getchatmsg":
-                loginID = flask.session["id"]
+                userid = flask.session["userid"]
                 chatFrom = flask.request.form.get("id")
-                if chatFrom not in chatdata[loginID]:
-                    chatdata[loginID][chatFrom] = {
+                if chatFrom not in chatdata[userid]:
+                    chatdata[userid][chatFrom] = {
                         "result": []
                     }
-                return chatdata[loginID][chatFrom]
+                return chatdata[userid][chatFrom]
 
         else:
             return "[external server] mode parameter doesn't exist"
@@ -163,8 +175,9 @@ def makechat(sendfrom, sendto, sendmsg):
 @socket_io.on("join")
 def join(data):
     channel = data['channel']
-    loginid = data['loginid']
-    if users[loginid] == channel:
+    userid = data['userid']
+
+    if flask.session["userid"] == userid:
         if 'chatserver' in data:
             chatserver = data['chatserver']
             t = chatserver.split(':')
@@ -177,11 +190,11 @@ def join(data):
         print(flask.session)
 
         flask.session["channel"] = channel
-        flask.session["loginid"] = loginid
+        flask.session["userid"] = userid
         flask_socketio.join_room(channel)
         print("joined")
 
-        chatdata["admin"][loginid] = {
+        chatdata["admin"][userid] = {
             "result": []
         }
 
@@ -225,22 +238,22 @@ def chatsend(content):
             content = content.encode('latin-1')
             content = json.loads(content)
 
-        content["from"] = flask.session["loginid"]
+        content["from"] = flask.session["userid"]
 
-        if flask.session["loginid"] not in chatdata[content["to"]]:
-            chatdata[content["to"]][flask.session["loginid"]] = {
+        if flask.session["userid"] not in chatdata[content["to"]]:
+            chatdata[content["to"]][flask.session["userid"]] = {
                 "result": []
             }
         ### tmp database
-        chatdata[flask.session["loginid"]][content["to"]]["result"].append(content)
-        chatdata[content["to"]][flask.session["loginid"]]["result"].append(content)
+        chatdata[flask.session["userid"]][content["to"]]["result"].append(content)
+        chatdata[content["to"]][flask.session["userid"]]["result"].append(content)
         ###
 
         content = json.dumps(content).encode()+b"\n"
         
     except Exception as e:
         # print(str(e))
-        # print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['loginid']}")
+        # print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['userid']}")
         # logging.error(traceback.format_exc())
         pass
 
@@ -259,7 +272,7 @@ def chatsend(content):
 
     try:
         if sendtome_flag:
-            sioemit("newchat", resp, users[flask.session["loginid"]])
+            sioemit("newchat", resp, users[flask.session["userid"]])
         else:
             sioemit("newchat", resp, users[resp["to"]])
             sioemit("newchat", resp, users[resp["from"]])
