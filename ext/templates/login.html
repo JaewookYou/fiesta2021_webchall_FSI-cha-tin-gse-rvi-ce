@@ -2,6 +2,14 @@
 <html>
 <head>
 	<title>login</title>
+	<script>
+	var registerResult = {{ registerResult }};
+	if ( == true){
+		alert("[+] register success!");
+	} else {
+		alert(registerResult);
+	}
+	</script>
 </head>
 <body>
 	hi this is login page
@@ -12,5 +20,8 @@
 		<input type="password" name="userpw" value="">
 		<input type="submit" value="login">
 	</form>
+
+	if you don't have account?
+	<a href="/register">register</a>
 </body>
 </html>

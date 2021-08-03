@@ -3,7 +3,7 @@
 # #from flask_socketio import SocketIO, send, emit, join_room, leave_room, rooms
 import flask_socketio
 import flask
-import requests, datetime, uuid, socket, json, threading
+import requests, datetime, uuid, socket, json, threading, os
 import logging, traceback
 import concurrent.futures 
 from threading import Lock
@@ -11,6 +11,7 @@ logging.basicConfig(level=logging.ERROR)
 
 app = flask.Flask(__name__)
 app.secret_key = "asdfasdfadsf"
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 socket_io = flask_socketio.SocketIO(app)
 chatdata = {}
 users = {}
@@ -48,6 +49,22 @@ def doLoginQuery(sock, userid, userpw):
     r = socksend(sock, reqPacket)
     return r
 
+def doRegisterQuery(sock, userid, userpw, uploadFilePath):
+    reqPacket = {
+        "command":"register",
+        "userid":userid,
+        "userpw":userpw,
+        "uploadFilePath":uploadFilePath
+    }
+    r= socksend(sock, reqPacket)
+    return r
+        
+def secureFileName(filename):
+    filteringList = ["..","\\","\x00","'",'"']
+    for filterChar in filteringList:
+        filename = filename.replace(filterChar, "")
+    return filename
+
 def sessionCheck(loginCheck=False):   
     if loginCheck:
         if "isLogin" not in flask.session:
@@ -74,7 +91,7 @@ def login():
         if sessionCheck(loginCheck=True):
             return flask.redirect(flask.url_for("chat"))
 
-        return flask.render_template("login.html")
+        return flask.render_template("login.html", registerResult=flask.request.args["registerResult"])
     else:
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
@@ -118,7 +135,7 @@ def login():
             return resp
         else:
             return "login failed"
-        
+
     
 @app.route("/register", methods=["GET","POST"])
 def register():
@@ -131,7 +148,21 @@ def register():
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
 
-        return flask.render_template("register.html")
+        content = ""
+        uploadPath = "./uploads/"
+        uploadFile = flask.request.files["profileImage"]
+        
+        uploadFileName = uploadPath + secureFileName(uploadFile.filename)
+        print(uploadFileName)
+        try:
+            uploadFile.save(uploadFileName)
+            with open(uploadFileName,"rb") as f:
+                content = f.read()
+            content = doRegisterQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"], uploadFileName)
+        except:
+            content = f'[x] upload "{uploadFileName}" error'
+  
+        return flask.redirect(flask.url_for("login", registerResult=content))
 
 @app.route("/logout")
 def logout():
@@ -141,7 +172,7 @@ def logout():
 @app.route("/chat", methods=["GET","POST"])
 def chat():
     if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))        
+        return flask.redirect(flask.url_for("login"))
 
     if flask.request.method == "GET":
         return flask.render_template("chat.html")
