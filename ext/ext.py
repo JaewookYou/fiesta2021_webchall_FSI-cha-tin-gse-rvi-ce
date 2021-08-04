@@ -3,7 +3,7 @@
 # #from flask_socketio import SocketIO, send, emit, join_room, leave_room, rooms
 import flask_socketio
 import flask
-import requests, datetime, uuid, socket, json, threading, os
+import requests, datetime, uuid, socket, json, threading, os, base64, re
 import logging, traceback
 import concurrent.futures 
 from threading import Lock
@@ -49,15 +49,23 @@ def doLoginQuery(sock, userid, userpw):
     r = socksend(sock, reqPacket)
     return r
 
-def doRegisterQuery(sock, userid, userpw, uploadFilePath):
+def doRegisterQuery(sock, userid, userpw, filename, profileImageContent):
     reqPacket = {
         "command":"register",
         "userid":userid,
         "userpw":userpw,
-        "uploadFilePath":uploadFilePath
+        "filename":filename,
+        "profileImageContent": profileImageContent
     }
+    print(reqPacket)
     r= socksend(sock, reqPacket)
     return r
+
+def checkUserIDPW(userid, userpw):
+    if re.search(r"[^\w]",userid) or len(userid) == 0 or len(userid) > 50 or len(userpw) == 0 or len(userpw) > 50:
+        return False
+    else:
+        return True
         
 def secureFileName(filename):
     filteringList = ["..","\\","\x00","'",'"']
@@ -100,6 +108,9 @@ def login():
     else:
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
+
+        if not checkUserIDPW(flask.request.form["userid"], flask.request.form["userpw"]):
+            return flask.render_template("login.html", msg="invalid userid or userpw")
         
         queryResult = doLoginQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"])
         if "userid" in queryResult:
@@ -153,21 +164,52 @@ def register():
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
 
-        content = ""
-        uploadPath = "./uploads/"
-        uploadFile = flask.request.files["profileImage"]
+        if not checkUserIDPW(flask.request.form["userid"], flask.request.form["userpw"]):
+            return flask.render_template("login.html", msg="invalid userid or userpw")
+
+        profileImageFile = flask.request.files["profileImage"]
+        if profileImageFile.filename == "":
+            resp = "[x] please attach a profile image"
+            return flask.redirect(flask.url_for("login", msg=resp))
         
-        uploadFileName = uploadPath + secureFileName(uploadFile.filename)
-        print(uploadFileName)
-        try:
-            uploadFile.save(uploadFileName)
-            with open(uploadFileName,"rb") as f:
-                content = f.read()
-            content = doRegisterQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"], uploadFileName)
-        except:
-            content = f'[x] upload "{uploadFileName}" error'
-  
-        return flask.redirect(flask.url_for("login", msg=content))
+        fileContent = base64.b64encode(profileImageFile.read())
+        if type(fileContent) == bytes:
+            fileContent = fileContent.decode()
+
+        resp = doRegisterQuery(
+            users[flask.session["uuid"]], 
+            flask.request.form["userid"], 
+            flask.request.form["userpw"], 
+            profileImageFile.filename,
+            fileContent 
+        )
+
+        return flask.redirect(flask.url_for("login", msg=resp))
+
+@app.route("/uploadImage", methods=["POST"])
+def uploadImage():
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+        
+
+    resp = ""
+    uploadPath = "./uploads/"
+    uploadFile = flask.request.files["image"]
+    if uploadFile.filename == "":
+        resp = f"[x] please attach a profile image pic"
+        return flask.redirect(flask.url_for("login", msg=resp))
+
+    uploadFileName = uploadPath + secureFileName(uploadFile.filename)
+    try:
+        uploadFile.save(uploadFileName)
+        with open(uploadFileName,"rb") as f:
+            resp = f.read()
+        resp = doRegisterQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"], uploadFileName)
+    except:
+        resp = f'[x] upload "{uploadFileName}" error'
+
+    return f"{chatImageFile.filename}"
+
 
 @app.route("/logout")
 def logout():

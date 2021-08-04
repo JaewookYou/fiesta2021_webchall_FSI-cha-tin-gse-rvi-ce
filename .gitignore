@@ -1,1 +1,2 @@
-ext/uploads/
+ext/uploads/*
+int/uploads/*

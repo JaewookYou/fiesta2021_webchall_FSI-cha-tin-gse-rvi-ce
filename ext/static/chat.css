@@ -119,10 +119,29 @@ img{ max-width:100%;}
   color: #4c4c4c;
   font-size: 15px;
   min-height: 48px;
+  margin-left: 5px;
+}
+
+.input_msg_write {
+  width: 93%;
+  float: left;
+
+  align-content: center;
+}
+
+.input_file {
+  width: 7%;
+  float: left;
+}
+
+.type_msg {
+  border-top: 1px solid #c4c4c4;
+  position: relative;
+  float: left;
+
   width: 100%;
 }
 
-.type_msg {border-top: 1px solid #c4c4c4;position: relative;}
 .msg_send_btn {
   background: #05728f none repeat scroll 0 0;
   border: medium none;
