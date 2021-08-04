@@ -90,8 +90,13 @@ def login():
     if flask.request.method == "GET":
         if sessionCheck(loginCheck=True):
             return flask.redirect(flask.url_for("chat"))
+        
+        try:
+            msg = flask.request.args["msg"]
+        except:
+            msg = "false"
 
-        return flask.render_template("login.html", registerResult=flask.request.args["registerResult"])
+        return flask.render_template("login.html", msg=msg)
     else:
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
@@ -134,7 +139,7 @@ def login():
             resp.set_cookie('uuid', flask.session["uuid"])
             return resp
         else:
-            return "login failed"
+            return flask.render_template("login.html", msg="login failed")
 
     
 @app.route("/register", methods=["GET","POST"])
@@ -162,7 +167,7 @@ def register():
         except:
             content = f'[x] upload "{uploadFileName}" error'
   
-        return flask.redirect(flask.url_for("login", registerResult=content))
+        return flask.redirect(flask.url_for("login", msg=content))
 
 @app.route("/logout")
 def logout():

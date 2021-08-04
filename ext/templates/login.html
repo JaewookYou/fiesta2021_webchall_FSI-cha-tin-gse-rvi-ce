@@ -3,11 +3,9 @@
 <head>
 	<title>login</title>
 	<script>
-	var registerResult = {{ registerResult }};
-	if ( == true){
-		alert("[+] register success!");
-	} else {
-		alert(registerResult);
+	var msg = '{{ msg }}';
+	if (msg != "false"){
+		alert(msg);
 	}
 	</script>
 </head>
