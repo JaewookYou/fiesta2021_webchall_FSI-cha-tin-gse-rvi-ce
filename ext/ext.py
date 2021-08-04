@@ -57,7 +57,6 @@ def doRegisterQuery(sock, userid, userpw, filename, profileImageContent):
         "filename":filename,
         "profileImageContent": profileImageContent
     }
-    print(reqPacket)
     r= socksend(sock, reqPacket)
     return r
 
@@ -93,6 +92,29 @@ def sessionCheck(loginCheck=False):
 
     return False
 
+
+def socksend(sock, content):
+    if type(content) == dict:
+        content = json.dumps(content).encode()+b"\n"
+    r=""
+    try:
+        sock.send(content)
+        r = sock.recv(4096).decode()
+        return json.loads(r)
+    except:
+        pass
+
+    return r
+
+
+def sioemit(namespace, content, room=None):
+    if room:
+        flask_socketio.emit(namespace, content, room=room)
+    else:
+        flask_socketio.emit(namespace, content)
+    return
+
+
 @app.route("/login", methods=["GET","POST"])
 def login():
     if flask.request.method == "GET":
@@ -117,34 +139,8 @@ def login():
             flask.session["userid"] = queryResult["userid"]
             flask.session["isLogin"] = True
             userid = flask.session["userid"]
-            chatdata[userid] = {}
-            chatdata["admin"] = {}
-            chatdata["guest"] = {}
-            chatdata["admin"][userid] = {
-                "result": []
-            }
-            chatdata[userid]["admin"] = {
-                "result": [
-                    {
-                        "from": userid,
-                        "to": "admin",
-                        "date": "2021-06-09 11:01:00",
-                        "msg": "hihihi"
-                    },
-                    {
-                        "from": "admin",
-                        "to": userid,
-                        "date": "2021-06-09 11:01:00",
-                        "msg": "asdfasdfasdfsadfasd"
-                    }
-                ]
-            }
-            chatdata[userid]["guest"] = {
-                "result": []
-            }
-            chatdata["guest"][userid] = {
-                "result": []
-            }
+            users[userid] = flask.session["uuid"]
+            
             resp = flask.make_response(flask.redirect(flask.url_for("chat")))
             resp.set_cookie('userid', userid)
             resp.set_cookie('uuid', flask.session["uuid"])
@@ -191,24 +187,23 @@ def uploadImage():
     if not sessionCheck(loginCheck=True):
         return flask.redirect(flask.url_for("login"))
         
-
     resp = ""
     uploadPath = "./uploads/"
     uploadFile = flask.request.files["image"]
     if uploadFile.filename == "":
-        resp = f"[x] please attach a profile image pic"
-        return flask.redirect(flask.url_for("login", msg=resp))
+        resp = f"[x] please attach a image"
+        return resp
 
     uploadFileName = uploadPath + secureFileName(uploadFile.filename)
     try:
         uploadFile.save(uploadFileName)
         with open(uploadFileName,"rb") as f:
-            resp = f.read()
-        resp = doRegisterQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"], uploadFileName)
+            fileContent = f.read()
+        
     except:
         resp = f'[x] upload "{uploadFileName}" error'
 
-    return f"{chatImageFile.filename}"
+    return f"{uploadFileName}"
 
 
 @app.route("/logout")
@@ -255,59 +250,23 @@ def join(data):
     channel = data['channel']
     userid = data['userid']
 
-    if flask.session["userid"] == userid:
+    if flask.session["userid"] == userid and flask.session["uuid"] == channel:
         if 'chatserver' in data:
+            if flask.session["uuid"] in users:
+                users[flask.session["uuid"]].close()
             chatserver = data['chatserver']
             t = chatserver.split(':')
             c = (t[0], int(t[1]))
-        else:
-            c = ('127.0.0.1', 9091)
-        print(c)
-        flask.session["sock"] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-        flask.session["sock"].connect(c)
-        print(flask.session)
+            users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
+            users[flask.session["uuid"]].connect(c)
 
         flask.session["channel"] = channel
-        flask.session["userid"] = userid
         flask_socketio.join_room(channel)
-        print("joined")
-
-        chatdata["admin"][userid] = {
-            "result": []
-        }
 
         sioemit("join",{"result":"success"}, channel)
     else:
-        print("joined fail")
         sioemit("join",{"result":"fail"}, channel)
 
-def socksend(sock, content):
-    if type(content) == dict:
-        content = json.dumps(content).encode()+b"\n"
-    r=""
-    try:
-        sock.send(content)
-        r = sock.recv(4096).decode()
-        return json.loads(r)
-    except:
-        pass
-
-    return r
-
-
-def sioemit(namespace, content, room=None):
-    if room:
-        flask_socketio.emit(namespace, content, room=room)
-    else:
-        flask_socketio.emit(namespace, content)
-    return
-
-
-def stopPool(e):
-    for pid, process in e._processes.items():
-        print(f"[+] {pid}:{process} killed..")
-        #e.terminate()
-    e.shutdown()
 
 @socket_io.on("chatsend")
 def chatsend(content):
@@ -316,23 +275,12 @@ def chatsend(content):
             content = content.encode('latin-1')
             content = json.loads(content)
 
-        content["from"] = flask.session["userid"]
+        if content["from"] != flask.session["userid"]:
+            print(f"[x] {content['from']} != {flask.session['userid']}")
+            return "[x] request from user is different from session"
 
-        if flask.session["userid"] not in chatdata[content["to"]]:
-            chatdata[content["to"]][flask.session["userid"]] = {
-                "result": []
-            }
-        ### tmp database
-        chatdata[flask.session["userid"]][content["to"]]["result"].append(content)
-        chatdata[content["to"]][flask.session["userid"]]["result"].append(content)
-        ###
-
-        content = json.dumps(content).encode()+b"\n"
-        
     except Exception as e:
-        # print(str(e))
-        # print(f"[x] why? {content['to']}:{chatdata[content['to']].keys()}, {flask.session['userid']}")
-        # logging.error(traceback.format_exc())
+        logging.error(traceback.format_exc())
         pass
 
     if b"sendtome" in content:
@@ -340,22 +288,22 @@ def chatsend(content):
     else:
         sendtome_flag = False
 
-
-    resp = socksend(flask.session["sock"], content)
-
+    resp = socksend(users[flask.session["uuid"]], content)
+    
     if type(resp) != dict:
         resp = {"result": 0, "msg":resp}
     else:
-        resp["result"] = 1
-
+        resp = {"result": 1, "msg":resp}
+        
     try:
-        if sendtome_flag:
-            sioemit("newchat", resp, users[flask.session["userid"]])
+        if "sendtome" in resp["msg"]:
+            sioemit("newchat", resp, users[content['to']])
+            print(f"[!] send complete {resp}")
         else:
-            sioemit("newchat", resp, users[resp["to"]])
-            sioemit("newchat", resp, users[resp["from"]])
-            print(f'[+] chatsend( to ) - {resp} {users[resp["to"]]}')
-            print(f'[+] chatsend(from) - {resp} {users[resp["from"]]}')
+            sioemit("newchat", resp, users[content['from']])
+            sioemit("newchat", resp, users[content["to"]])
+            print(f'[+] chatsend( to ) - {resp} {users[content["to"]]}')
+            print(f'[+] chatsend(from) - {resp} {users[content["from"]]}')
     except:
         logging.error(traceback.format_exc())
 

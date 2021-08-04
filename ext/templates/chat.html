@@ -9,10 +9,10 @@
 <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" type="text/css" rel="stylesheet">
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.min.js"></script>
 <script>
-	var testsend = null;
 	var uuid = getCookie("uuid");
 	var userid = getCookie("userid");
 	var focusedUser = null;
+	var sock = io.connect('ws://127.0.0.1:9090/');
 
 	function getlist(){
 		// get chatting lists
@@ -62,6 +62,7 @@
 	}
 
 	function appendMessages(data){
+		console.log("called")
 		var appendHTML = "";			
 		var datestr = getDateStr(data.date)
 		
@@ -105,8 +106,6 @@
 				var appendHTML = "";
 				var cnt = 0;
 				
-				//var userid = "arang"; // tmp mock data
-
 				for (var data of datas["result"]) {
 					var datestr = getDateStr(data.date)
 
@@ -164,7 +163,7 @@
 	
 
 	$(document).ready(function(){
-		var sock = io.connect('ws://127.0.0.1:9090/');
+		
 		window.onbeforeunload = function(e) {
 		  sock.disconnect();
 		};
@@ -185,9 +184,9 @@
 		sock.on('newchat', function(data){
 			if(data.result == 0){
 				console.log("[x] err... "+data.msg);
-			}else if(data.result == 1 && focusedUser == data.from){
-				console.log(`[+] newchat ${data.from}->${data.to} : ${data.msg}`);
-				appendMessages(data);
+			}else if(data.result == 1 && focusedUser == data.msg.from){
+				console.log(`[+] newchat ${data.msg.from}->${data.msg.to} : ${data.msg.msg}`);
+				appendMessages(data.msg);
 			}
 		})
 
@@ -198,6 +197,7 @@
 		$("#sendform").submit(function(event){
 			event.preventDefault();
 			var data = {
+				"command": "chatsend",
 				"date": maketime(),
 				"from": userid,
 				"to": $("input[name=to]").val(),
@@ -210,7 +210,7 @@
 			}
 
 			if(data["to"] == userid){
-				data["sendtome"] = true;
+				data["sendtome"] = 'true';
 			}
 			
 			sock.emit("chatsend", data);
@@ -228,19 +228,28 @@
 
 	function doUpload(fis){
 		var form = $("#uploadImageForm")[0];
-		var formData = new FormData(form);
-		formData.append("image", $("#file1")[0].files[0]);
+		var data = {
+			"command": "imagesend",
+			"date": maketime(),
+			"from": userid,
+			"to": $("input[name=to]").val(),
+			"msg": $("input[name=msg]").val()
+		};
+		sock.emit("chatsend", data);
 
-		$.ajax({
-			url: 'uploadImage',
-			processData: false,
-			contentType: false,
-			data: formData,
-			type: 'POST',
-			success: function(result){
-				console.log(result);
-			}
-		});
+		// var formData = new FormData(form);
+		// formData.append("image", $("#file1")[0].files[0]);
+
+		// $.ajax({
+		// 	url: 'uploadImage',
+		// 	processData: false,
+		// 	contentType: false,
+		// 	data: formData,
+		// 	type: 'POST',
+		// 	success: function(result){
+		// 		console.log(result);
+		// 	}
+		// });
 	}
 
 </script>
