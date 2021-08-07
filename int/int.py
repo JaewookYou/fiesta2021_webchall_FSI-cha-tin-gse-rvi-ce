@@ -63,7 +63,7 @@ class mysqlapi:
 
 		try:
 			uploadFilePath = ""
-			uploadFileRoot = f"./uploads/{req['userid']}/"
+			uploadFileRoot = f"{os.path.abspath('./')}/uploads/{req['userid']}/"
 			if not os.path.exists(uploadFileRoot) and not os.path.isdir(uploadFileRoot):
 				os.makedirs(uploadFileRoot)
 			filename = secureFileName(req['filename'])
@@ -85,13 +85,116 @@ class mysqlapi:
 			resp = f'[x] upload "{uploadFilePath}" error'
 			
 
-		query = f"insert into user values(null, '{req['userid']}', '{req['userpw']}', '{filename}')"
+		query = f"insert into user (userid, userpw, userProfileImagePath) values('{req['userid']}', '{req['userpw']}', '{filename}')"
 		print(f"[+] query(register) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 		
 		if self.duplicatedCheck(req):
 			return resp
+		else:
+			return False
+
+
+	def getChatRoom(self, req):
+		query = f"select roomseq from chatroom where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
+		print(f"[+] query(login) - {query}")
+		self.cursor.execute(query)
+		result = self.cursor.fetchall()
+		print(f"[+] result(login) - {result}")
+		if result != ():
+			return result
+		else:
+			return False
+
+	def createChatRoom(self, req):
+		query = f"insert into (user_a, user_b, lastmsg, lastdate) chatroom values('{req['from']}', '{req['to']}', null, null)"
+		self.cursor.execute(query)
+		self.conn.commit()
+		if self.getChatRoom(req) != ():
+			return True
+		else:
+			return False
+
+	def updateRecentChat(self, req):
+		query = f"update chatroom set lastmsg='{req['msg'][:30]}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
+		self.cursor.execute(query)
+		self.conn.commit()
+
+	def insertChat(self, req, isImage=False):
+		query = f"insert into chat (chatfrom, chatto, chatmsg, chatdate{', isImage' if isImage else ''}) values('{req['from']}', '{req['to']}', '{req['msg']}', '{req['date']}'{', true' if isImage else ''})"
+		print(f"[+] insertChat query - {query}")
+		self.cursor.execute(query)
+		self.conn.commit()
+
+	def doSaveChatdata(self, req):
+		req = self.safeQuery(req)
+		req['date'] = whatTimeIsIt()
+		
+		chatroomNum = self.getChatRoom(req)
+		if not chatroomNum:
+			if not self.createChatRoom(req):
+				return "[x] create chat room error"
+
+		self.updateRecentChat(req)
+
+		self.insertChat(req)
+
+		return req
+
+	def imagesend(self, req):
+		req = self.safeQuery(req)
+		req['date'] = whatTimeIsIt()
+		req['msg'] = req['filename']
+		
+		chatroomNum = self.getChatRoom(req)
+		if not chatroomNum:
+			if not self.createChatRoom(req):
+				return "[x] create chat room error"
+
+		self.updateRecentChat(req)
+
+		self.insertChat(req, isImage=True)
+
+		req['isImage'] = True
+
+		return req
+		
+
+	def getChatMsg(self, req):
+		req = self.safeQuery(req)
+
+		query = f"select * from chat where (chatfrom='{req['from']}' and chatto='{req['to']}') or (chatfrom='{req['to']}' and chatto='{req['from']}') order by 1 desc limit 0, 30"
+		
+		self.cursor.execute(query)
+		result = self.cursor.fetchall()
+		
+		if result != ():
+			r = []
+			for i in result:
+				i['chatdate'] = str(i['chatdate'])
+				r.append(i)
+			return r[::-1]
+		else:
+			return False
+
+	def getProfileImage(self, req):
+		req = self.safeQuery(req)
+
+		query = f"select userProfileImagePath from user where userid='{req['userid']}'"
+		print(f"[+] query(getChatMsg) - {query}")
+		self.cursor.execute(query)
+		result = self.cursor.fetchall()
+		print(f"[+] result(getChatMsg) - {result}")
+		if result != ():
+			uploadFileRoot = f"{os.path.abspath('./')}/uploads/{req['userid']}/"
+			uploadFilePath = f"{uploadFileRoot}{result[0]['userProfileImagePath']}"
+			with open(uploadFilePath, 'rb') as f:
+				cont = f.read()
+
+			convertedContent = f"data:image/png;base64,{base64.b64encode(cont).decode()}"
+			return convertedContent
+
 		else:
 			return False
 
@@ -119,58 +222,22 @@ class mysqlapi:
 		#    chatdate datetime
 		# ) default character set utf8 collate utf8_general_ci;
 
-	def getChatRoom(self, req):
-		query = f"select roomseq from chatroom where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
-		print(f"[+] query(login) - {query}")
+
+	def getlist(self, req):
+		req = self.safeQuery(req)
+		query = f"select * from chatroom where user_a='{req['from']}' or user_b='{req['from']}' order by lastdate desc"
+		print(f"[+] query(getChatMsg) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(login) - {result}")
+		print(f"[+] result(getChatMsg) - {result}")
 		if result != ():
-			return result
+			r = []
+			for i in result:
+				i['lastdate'] = str(i['lastdate'])
+				r.append(i)
+			return r
 		else:
 			return False
-
-	def createChatRoom(self, req):
-		query = f"insert into chatroom values(null, '{req['from']}', '{req['to']}', null, null)"
-		self.cursor.execute(query)
-		self.conn.commit()
-		if self.getChatRoom(req) != ():
-			return True
-		else:
-			return False
-
-	def updateRecentChat(self, req):
-		query = f"update chatroom set lastmsg='{req['msg'][:30]}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
-		self.cursor.execute(query)
-		self.conn.commit()
-
-	def insertChat(self, req):
-		query = f"insert into chat values(null, '{req['from']}', '{req['to']}', '{req['msg']}', '{req['date']}')"
-		self.cursor.execute(query)
-		self.conn.commit()
-
-	def doSaveChatdata(self, req):
-		print(req)
-		req = self.safeQuery(req)
-		req['date'] = whatTimeIsIt()
-		
-		chatroomNum = self.getChatRoom(req)
-		# check chatroom exists
-		if not chatroomNum:
-			# if chatroom doesn't exists
-			# create chatroom (insert into chatroom)
-			if not self.createChatRoom(req):
-				return "[x] create chat room error"
-
-		# modify lastmsg/date at chatroom
-		self.updateRecentChat(req)
-
-		# insert chatdata to chat table
-		self.insertChat(req)
-
-		# return req
-		return req
-
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -186,38 +253,65 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 		while 1:
 			self.data = self.request.recv(4096).strip().decode()
-			
 			print(self.client_address[0])
 			if not self.data:
 				break
 			try:
-				req = json.loads(self.data)
-				cmd = req["command"]
+				with lock:
+					req = json.loads(self.data)
+					cmd = req["command"]
 
-				if cmd == "login":
-					r = self.mysqlapi.doLogin(req)
-					if r:
-						self.request.sendall(json.dumps(r[0]).encode())
-					else:
-						self.request.sendall(b"[x] id/pw is not correct")
+					if cmd == "login":
+						r = self.mysqlapi.doLogin(req)
+						if r:
+							self.request.sendall(json.dumps(r[0]).encode())
+						else:
+							self.request.sendall(b"[x] id/pw is not correct")
 
-				elif cmd == "register":
-					r = self.mysqlapi.doRegister(req)
-					if r:
-						self.request.sendall(r.encode())
-					else:
-						self.request.sendall(b"[x] register fail")
-						
-				elif cmd == "chatsend":
-					r = self.mysqlapi.doSaveChatdata(req)
-					if r:
-						print(f"[chatsend result] {r}")
-						self.request.sendall(json.dumps(r).encode())
-					else:
-						self.request.sendall(b"[x] chat send fail")
+					elif cmd == "register":
+						r = self.mysqlapi.doRegister(req)
+						if r:
+							self.request.sendall(r.encode())
+						else:
+							self.request.sendall(b"[x] register fail")
+							
+					elif cmd == "chatsend":
+						r = self.mysqlapi.doSaveChatdata(req)
+						if r:
+							self.request.sendall(json.dumps(r).encode())
+						else:
+							self.request.sendall(b"[x] chat send fail")
 
-				else:
-					self.request.sendall(b"[x] please input right command")
+					elif cmd == "getchatmsg":
+						r = self.mysqlapi.getChatMsg(req)
+						if r:
+							self.request.sendall(json.dumps(r).encode())
+						else:
+							self.request.sendall(b"[x] get chat msg fail")
+
+					elif cmd == "getProfileImage":
+						r = self.mysqlapi.getProfileImage(req)
+						if r:
+							self.request.sendall(r.encode())
+						else:
+							self.request.sendall(b"x")
+
+					elif cmd == "imagesend":
+						r = self.mysqlapi.imagesend(req)
+						if r:
+							self.request.sendall(json.dumps(r).encode())
+						else:
+							self.request.sendall(b"[x] sending image fail")
+
+					elif cmd == "getlist":
+						r = self.mysqlapi.getlist(req)
+						if r:
+							self.request.sendall(json.dumps(r).encode())
+						else:
+							self.request.sendall(b"[x] getlist fail")
+
+					else:
+						self.request.sendall(b"[x] please input right command")
 				
 			except:
 				logging.error(traceback.format_exc())

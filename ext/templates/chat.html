@@ -13,39 +13,16 @@
 	var userid = getCookie("userid");
 	var focusedUser = null;
 	var sock = io.connect('ws://127.0.0.1:9090/');
+	var profileImage;
 
 	function getlist(){
 		// get chatting lists
-		$.ajax({
-			type: "GET",
-			url: "/getlist",
-			dataType: "json",
-			error: function() {
-				return false;
-			},
-			success: function(datas) {
-				var appendHTML = "";
-				var cnt = 0;
-				for (var data of datas["result"]) {
-					var active_chat = "";
-					if (cnt == 0) { active_chat = "active_chat"; }
-					appendHTML += `<div class="chat_list ${data.id} ${active_chat}" onclick=getmessage("${data.id}")>
-		              <div class="chat_people">
-		                <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-		                <div class="chat_ib">
-		                  <h5>${data.id}<span class="chat_date">${data.date}</span></h5>
-		                  <p>${data.text}</p>
-		                </div>
-		              </div>
-		            </div>
-		            `
-				  	cnt += 1;
-				}
-				$(".inbox_chat").html(appendHTML);
-				$(".active_chat").click();
-				return true;
-			}
-		});
+		var data = {
+			"command": "getlist",
+			"from": userid
+		};
+
+		sock.emit("getlist", data);
 	}
 
 	function getDateStr(strdate){
@@ -62,13 +39,12 @@
 	}
 
 	function appendMessages(data){
-		console.log("called")
 		var appendHTML = "";			
 		var datestr = getDateStr(data.date)
-		
+		data.msg = eval(`data.msg='${data.msg}'`);
 		if (data.to == userid && data.to != data.from){
 			appendHTML += `<div class="incoming_msg">
-              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
+              <div class="incoming_msg_img"> <img src="${profileImage}" alt="sunil"> </div>
               <div class="received_msg">
                 <div class="received_withd_msg">
                   <p>${data.msg}</p>
@@ -94,52 +70,18 @@
 
 	function getchatmsg(id){
 		// get chatting messages
-		$.ajax({
-			type: "POST",
-			url: `/chat`,
-			dataType: "json",
-			data: {"mode":"getchatmsg","id":id},
-			error: function() {
-				return false;
-			},
-			success: function(datas) {
-				var appendHTML = "";
-				var cnt = 0;
-				
-				for (var data of datas["result"]) {
-					var datestr = getDateStr(data.date)
+		var data = {
+			"command": "getchatmsg",
+			"from": userid,
+			"to": focusedUser
+		};
 
-					if (data.from == userid) {
-	        	appendHTML += `<div class="outgoing_msg">
-	              <div class="sent_msg">
-	                <p>${data.msg}</p>
-	                <span class="time_date"> ${datestr}</span> </div>
-	            </div>
-	            `
-	        } else if (data.to == userid){
-						appendHTML += `<div class="incoming_msg">
-			              <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-			              <div class="received_msg">
-			                <div class="received_withd_msg">
-			                  <p>${data.msg}</p>
-			                  <span class="time_date"> ${datestr}</span></div>
-			              </div>
-			            </div>
-			            `
-	        }  else {
-	        	console.log("[x] ?? what's going on?");
-	        }
-				  	
-				}
-				$(".msg_history").html(appendHTML);
-				$(".msg_history").scrollTop($(".msg_history")[0].scrollHeight);
-				return true;
-			}
-		});
+		sock.emit("getchatmsg", data);
 	}
 
-	function getmessage(id){
+	async function getmessage(id){
 		focusedUser = id;
+		profileImage = await getProfileImage(focusedUser);
 		$(".active_chat").attr("class", $(".active_chat").attr("class").replace(" active_chat",""));
 		$(`.chat_list.${id}`).attr("class",`chat_list ${id} active_chat`);
 		if(getchatmsg(id) == false){
@@ -160,7 +102,9 @@
   	return `${a} ${b}`
   }
 
-	
+  async function getProfileImage(id) {
+		return await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r});
+  }
 
 	$(document).ready(function(){
 		
@@ -186,8 +130,90 @@
 				console.log("[x] err... "+data.msg);
 			}else if(data.result == 1 && focusedUser == data.msg.from){
 				console.log(`[+] newchat ${data.msg.from}->${data.msg.to} : ${data.msg.msg}`);
-				appendMessages(data.msg);
+				setTimeout(getchatmsg,300,focusedUser)//appendMessages(data.msg);
+				getlist();
 			}
+		})
+
+		sock.on('uploadImageResult', function(data){
+			console.log(data);
+			if(data.indexOf('[x]') > -1){
+				alert("[x] upload error")
+			}
+
+			$("#file1")[0].value="";
+		})
+
+		sock.on('getchatmsg', function(datas){
+			var appendHTML = "";
+			var cnt = 0;
+			
+			for (var data of datas) {
+				console.log(data);
+				var datestr = getDateStr(data.chatdate)
+				data.msg = eval(`data.msg='${data.msg}'`);
+				if (data.chatfrom == userid) {
+        	appendHTML += `<div class="outgoing_msg">
+              <div class="sent_msg">
+                <p>${data.chatmsg}</p>
+                <span class="time_date"> ${datestr}</span> </div>
+            </div>
+            `
+        } else if (data.chatto == userid){
+					appendHTML += `<div class="incoming_msg">
+		              <div class="incoming_msg_img"> <img src="${profileImage}"> </div>
+		              <div class="received_msg">
+		                <div class="received_withd_msg">
+		                  <p>${data.chatmsg}</p>
+		                  <span class="time_date"> ${datestr}</span></div>
+		              </div>
+		            </div>
+		            `
+        }  else {
+        	console.log("[x] ?? what's going on?");
+        }
+			  	
+			}
+			$(".msg_history").html(appendHTML);
+			$(".msg_history").scrollTop($(".msg_history")[0].scrollHeight);
+			return true;
+		})
+
+		sock.on('getlist', async function(datas){
+			
+			var appendHTML = "";
+			var cnt = 0;
+			for (var data of datas) {
+				var active_chat = "";
+				var chatto;
+				if (cnt == 0) { active_chat = "active_chat"; }
+				if(data.user_a == data.user_b){
+					chatto = data.user_a;
+				}
+				else if(data.user_a == userid && data.user_b != userid){
+					chatto = data.user_b;
+				}
+				else if(data.user_b == userid && data.user_a != userid){
+					chatto = data.user_a;
+				}
+
+				var chatto_profileImage = await getProfileImage(chatto);
+				
+				appendHTML += `<div class="chat_list ${chatto} ${active_chat}" onclick=getmessage("${chatto}")>
+	              <div class="chat_people">
+	                <div class="chat_img"> <img src="${chatto_profileImage}" alt="sunil"> </div>
+	                <div class="chat_ib">
+	                  <h5>${chatto}<span class="chat_date">${data.lastdate}</span></h5>
+	                  <p>${data.lastmsg}</p>
+	                </div>
+	              </div>
+	            </div>
+	            `
+			  	cnt += 1;
+			}
+			$(".inbox_chat").html(appendHTML);
+			$(".active_chat").click();
+			return true;
 		})
 
 		if(getlist() == false){
@@ -200,7 +226,7 @@
 				"command": "chatsend",
 				"date": maketime(),
 				"from": userid,
-				"to": $("input[name=to]").val(),
+				"to": focusedUser,
 				"msg": $("input[name=msg]").val()
 			};
 			
@@ -216,8 +242,9 @@
 			sock.emit("chatsend", data);
 			
 			$(".write_msg").val("");
-				setTimeout(getchatmsg,300,focusedUser)
-			})
+			setTimeout(getchatmsg,300,focusedUser);
+			setTimeout(getlist,300);
+		})
 
 		$("#uploadImage").click(function(e){
 			e.preventDefault();
@@ -225,31 +252,36 @@
 		})
 
 	});
+	
+	function getBase64(file) {
+	  return new Promise((resolve, reject) => {
+	    const reader = new FileReader();
+	    reader.readAsDataURL(file);
+	    reader.onload = () => resolve(reader.result);
+	    reader.onerror = error => reject(error);
+	  });
+	}
 
-	function doUpload(fis){
-		var form = $("#uploadImageForm")[0];
+	async function doUpload(fis){
+		var f = $("#file1")[0].files[0];
+		var encodedFile = await getBase64(f);
+
 		var data = {
 			"command": "imagesend",
 			"date": maketime(),
 			"from": userid,
-			"to": $("input[name=to]").val(),
-			"msg": $("input[name=msg]").val()
+			"to": focusedUser,
+			"content": encodedFile,
+			"filename": f.name
+
 		};
-		sock.emit("chatsend", data);
 
-		// var formData = new FormData(form);
-		// formData.append("image", $("#file1")[0].files[0]);
+		if(data["to"] == userid){
+			data["sendtome"] = 'true';
+		}
 
-		// $.ajax({
-		// 	url: 'uploadImage',
-		// 	processData: false,
-		// 	contentType: false,
-		// 	data: formData,
-		// 	type: 'POST',
-		// 	success: function(result){
-		// 		console.log(result);
-		// 	}
-		// });
+		sock.emit("imagesend", data);
+
 	}
 
 </script>

@@ -26,7 +26,8 @@ create table chat (
    chatfrom varchar(50),
    chatto varchar(50),
    chatmsg varchar(1000),
-   chatdate datetime
+   chatdate datetime,
+   isImage boolean default false
 ) default character set utf8 collate utf8_general_ci;
 
 create table flag (
@@ -34,7 +35,16 @@ create table flag (
 ) default character set utf8 collate utf8_general_ci;
 
 insert into flag values("fiesta{this_is_test_flag}");
-insert into user values(null, "admin", "admin", "/tmp/a.jpg");
+insert into user (userid, userpw, userProfileImagePath) values("admin", "admin", "admin.png");
+insert into user (userid, userpw, userProfileImagePath) values("guest", "guest", "guest.png");
+
+insert into chatroom (user_a, user_b, lastmsg, lastdate) values("admin", "guest", "lastmsg", "2021-08-06 23:48:00");
+insert into chat (chatfrom, chatto, chatmsg, chatdate) values("admin", "guest", "firstmsg", "2021-08-06 23:47:00");
+insert into chat (chatfrom, chatto, chatmsg, chatdate) values("guest", "admin", "secondmsg", "2021-08-06 23:47:30"));
+insert into chat (chatfrom, chatto, chatmsg, chatdate) values("admin", "guest", "lastmsg", "2021-08-06 23:48:00");
+
+insert into chatroom (user_a, user_b, lastmsg, lastdate) values("admin", "admin", "lastmsg", "2021-08-06 23:48:00");
+insert into chat (chatfrom, chatto, chatmsg, chatdate) values("admin", "admin", "self msg", "2021-08-06 23:47:00");
 
 grant select, insert on chatdb.user to 'arangtest'@'%';
 grant select, insert, update on chatdb.chatroom to 'arangtest'@'%';

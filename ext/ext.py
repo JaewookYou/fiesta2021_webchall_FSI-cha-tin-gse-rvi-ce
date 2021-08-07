@@ -1,12 +1,8 @@
 #-*- coding: latin-1 -*-
-# from flask import Flask, flask.render_template, request as flask.request, flask.session, flask.make_response
-# #from flask_socketio import SocketIO, send, emit, join_room, leave_room, rooms
 import flask_socketio
 import flask
 import requests, datetime, uuid, socket, json, threading, os, base64, re
 import logging, traceback
-import concurrent.futures 
-from threading import Lock
 logging.basicConfig(level=logging.ERROR)
 
 app = flask.Flask(__name__)
@@ -15,30 +11,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 socket_io = flask_socketio.SocketIO(app)
 chatdata = {}
 users = {}
+block = threading.Lock()
 
-block = Lock()
 
-@app.route("/")
-def index():
-    return flask.redirect(flask.url_for("login"))
-
-@app.route("/getlist", methods=["GET"])
-def getlist():
-    data = {
-        "result":[
-            {
-                "id" : "admin",
-                "date" : "Jul 17",
-                "text" : "hello there"
-            },
-            {
-                "id" : "guest",
-                "date" : "Jul 16",
-                "text" : "this is guest"
-            }
-        ]
-    }
-    return data
+# -*-*-*-*-* common methods *-*-*-*-*- #
 
 def doLoginQuery(sock, userid, userpw):
     reqPacket = {
@@ -98,9 +74,10 @@ def socksend(sock, content):
         content = json.dumps(content).encode()+b"\n"
     r=""
     try:
-        sock.send(content)
-        r = sock.recv(4096).decode()
-        return json.loads(r)
+        with block:
+            sock.send(content)
+            r = sock.recv(1024*1024*80).decode('latin-1')
+            return json.loads(r)
     except:
         pass
 
@@ -113,6 +90,43 @@ def sioemit(namespace, content, room=None):
     else:
         flask_socketio.emit(namespace, content)
     return
+
+
+# -*-*-*-*-* flask methods *-*-*-*-*- #
+
+@app.route("/")
+def index():
+    return flask.redirect(flask.url_for("login"))
+
+@app.route("/getlist", methods=["GET"])
+def getlist():
+    data = {
+        "result":[
+            {
+                "id" : "admin",
+                "date" : "Jul 17",
+                "text" : "hello there"
+            },
+            {
+                "id" : "guest",
+                "date" : "Jul 16",
+                "text" : "this is guest"
+            }
+        ]
+    }
+    return data
+
+@app.route("/logout")
+def logout():
+    flask.session.pop('isLogin', False)
+    return flask.redirect(flask.url_for("login"))
+
+@app.route("/chat", methods=["GET"])
+def chat():
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+
+    return flask.render_template("chat.html")
 
 
 @app.route("/login", methods=["GET","POST"])
@@ -182,81 +196,38 @@ def register():
 
         return flask.redirect(flask.url_for("login", msg=resp))
 
-@app.route("/uploadImage", methods=["POST"])
-def uploadImage():
-    if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))
-        
-    resp = ""
-    uploadPath = "./uploads/"
-    uploadFile = flask.request.files["image"]
-    if uploadFile.filename == "":
-        resp = f"[x] please attach a image"
-        return resp
-
-    uploadFileName = uploadPath + secureFileName(uploadFile.filename)
-    try:
-        uploadFile.save(uploadFileName)
-        with open(uploadFileName,"rb") as f:
-            fileContent = f.read()
-        
-    except:
-        resp = f'[x] upload "{uploadFileName}" error'
-
-    return f"{uploadFileName}"
-
-
-@app.route("/logout")
-def logout():
-    flask.session.pop('isLogin', False)
-    return flask.redirect(flask.url_for("login"))
-
-@app.route("/chat", methods=["GET","POST"])
-def chat():
+@app.route("/getProfileImage", methods=["GET"])
+def getProfileImage():
     if not sessionCheck(loginCheck=True):
         return flask.redirect(flask.url_for("login"))
 
-    if flask.request.method == "GET":
-        return flask.render_template("chat.html")
+    userid = flask.request.args['id']
 
-    else:
-        if "mode" in flask.request.form:
-            mode = flask.request.form.get("mode")
-            if mode == "getchatmsg":
-                userid = flask.session["userid"]
-                chatFrom = flask.request.form.get("id")
-                if chatFrom not in chatdata[userid]:
-                    chatdata[userid][chatFrom] = {
-                        "result": []
-                    }
-                return chatdata[userid][chatFrom]
-
-        else:
-            return "[external server] mode parameter doesn't exist"
-
-def makechat(sendfrom, sendto, sendmsg):
-    date = datetime.datetime.strftime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S")
-    chatdict = {
-        "from": sendfrom,
-        "to": sendto,
-        "date": date,
-        "msg": sendmsg
+    reqPacket = {
+        "command":"getProfileImage",
+        "userid":userid
     }
-    return chatdict
+    r= socksend(users[flask.session["uuid"]], reqPacket)
+    return r
 
+
+
+# -*-*-*-*-* socket.io methods *-*-*-*-*- #
 
 @socket_io.on("join")
-def join(data):
-    channel = data['channel']
-    userid = data['userid']
+def join(content):
+    channel = content['channel']
+    userid = content['userid']
 
     if flask.session["userid"] == userid and flask.session["uuid"] == channel:
-        if 'chatserver' in data:
+        if 'chatserver' in content:
             if flask.session["uuid"] in users:
                 users[flask.session["uuid"]].close()
-            chatserver = data['chatserver']
+            
+            chatserver = content['chatserver']
             t = chatserver.split(':')
             c = (t[0], int(t[1]))
+            
             users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
             users[flask.session["uuid"]].connect(c)
 
@@ -267,9 +238,112 @@ def join(data):
     else:
         sioemit("join",{"result":"fail"}, channel)
 
+@socket_io.on("getlist")
+def getlist(content):
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+
+    try:
+        if type(content) != dict:
+            content = content.encode('latin-1')
+            content = json.loads(content)
+
+        if content["from"] != flask.session["userid"]:
+            print(f"[x] {content['from']} != {flask.session['userid']}")
+            return "[x] request from user is different from session"
+
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        pass
+
+    resp = socksend(users[flask.session["uuid"]], content)
+    print(resp)
+    sioemit("getlist", resp, users[flask.session["userid"]])
+
+@socket_io.on("getchatmsg")
+def getchatmsg(content):
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+
+    try:
+        if type(content) != dict:
+            content = content.encode('latin-1')
+            content = json.loads(content)
+
+        if content["from"] != flask.session["userid"]:
+            print(f"[x] {content['from']} != {flask.session['userid']}")
+            return "[x] request from user is different from session"
+
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        pass
+
+    resp = socksend(users[flask.session["uuid"]], content)
+
+    sioemit("getchatmsg", resp, users[flask.session["userid"]])
+
+
+@socket_io.on("imagesend")
+def imagesend(content):        
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+    resp = ""
+
+    if content["from"] != flask.session["userid"]:
+        print(f"[x] {content['from']} != {flask.session['userid']}")
+        return "[x] request from user is different from session"
+
+    uploadPath = ""
+    uploadFileRoot = f"{os.path.abspath('./')}/uploads/{content['from']}/"
+    if not os.path.exists(uploadFileRoot) and not os.path.isdir(uploadFileRoot):
+        os.makedirs(uploadFileRoot)
+
+    filename = secureFileName(content['filename'])
+    
+    if filename == "":
+        resp = f"[x] please attach a image"
+        return resp
+
+    uploadFilePath = uploadFileRoot + filename
+
+    try:
+        with open(uploadFilePath, 'wb') as f:
+            f.write(content['content'].encode())
+
+        sioemit("uploadImageResult", resp, flask.session["channel"])
+        
+        resp = socksend(users[flask.session["uuid"]], content)
+
+        uploadFilePath = uploadFileRoot + resp['filename']
+        
+        with open(uploadFilePath, 'rb') as f:
+            resp['content'] = f.read().decode()
+
+        if b"sendtome" in content:
+            sendtome_flag = True
+        else:
+            sendtome_flag = False
+
+        print(f"/!!!!!!!here!!!!!/ {resp}")
+
+        if sendtome_flag:
+            sioemit("newchat", resp, users[content['to']])
+        else:
+            sioemit("newchat", resp, users[content['to']])
+            sioemit("newchat", resp, users[content['from']])
+
+    except:
+        print(f"/!!!!!!!here!!!!!/ {resp}")
+        resp = f'[x] upload "{uploadFilePath}" error'
+
+        sioemit("uploadImageResult", resp, flask.session["channel"])
+
 
 @socket_io.on("chatsend")
 def chatsend(content):
+    if not sessionCheck(loginCheck=True):
+        return flask.redirect(flask.url_for("login"))
+
     try:
         if type(content) != dict:
             content = content.encode('latin-1')
@@ -289,21 +363,18 @@ def chatsend(content):
         sendtome_flag = False
 
     resp = socksend(users[flask.session["uuid"]], content)
-    
+
     if type(resp) != dict:
         resp = {"result": 0, "msg":resp}
     else:
         resp = {"result": 1, "msg":resp}
-        
+    
     try:
-        if "sendtome" in resp["msg"]:
-            sioemit("newchat", resp, users[content['to']])
-            print(f"[!] send complete {resp}")
+        if sendtome_flag:
+            sioemit("newchat", resp, users[flask.session["userid"]])
         else:
-            sioemit("newchat", resp, users[content['from']])
-            sioemit("newchat", resp, users[content["to"]])
-            print(f'[+] chatsend( to ) - {resp} {users[content["to"]]}')
-            print(f'[+] chatsend(from) - {resp} {users[content["from"]]}')
+            sioemit("newchat", resp, users[resp["msg"]["to"]])
+            sioemit("newchat", resp, users[resp["msg"]["from"]])
     except:
         logging.error(traceback.format_exc())
 
