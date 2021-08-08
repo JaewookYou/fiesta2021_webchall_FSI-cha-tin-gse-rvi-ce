@@ -1,12 +1,13 @@
 #-*- coding: latin-1 -*-
+### this is external server's app.py
 import flask_socketio
 import flask
-import requests, datetime, uuid, socket, json, threading, os, base64, re
+import datetime, uuid, socket, json, threading, os, base64, re
 import logging, traceback
 logging.basicConfig(level=logging.ERROR)
 
 app = flask.Flask(__name__)
-app.secret_key = "asdfasdfadsf"
+app.secret_key = os.urandom(16)
 app.config['MAX_CONTENT_LENGTH'] = 80 * 1024 * 1024
 socket_io = flask_socketio.SocketIO(app)
 chatdata = {}
@@ -64,7 +65,7 @@ def sessionCheck(loginCheck=False):
     if flask.session["uuid"] not in users:
         print(f"[+] new socket conn {flask.session['uuid']}")
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        users[flask.session["uuid"]].connect(("127.0.0.1",9091))
+        users[flask.session["uuid"]].connect(("172.22.0.4",9091))
 
     return False
 

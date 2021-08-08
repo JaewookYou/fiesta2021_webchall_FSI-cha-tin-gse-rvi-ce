@@ -1,4 +1,5 @@
 #-*- coding: cp949 -*-
+### this is internal server's app.py
 import socketserver
 import pymysql
 import threading
@@ -20,9 +21,9 @@ def whatTimeIsIt():
 class mysqlapi:
 	def __init__(self):
 		self.conn = pymysql.connect(
-			user = 'arangtest',
-			passwd = 'testpass',
-			host = 'arang.kr',
+			user = 'chatdb_admin',
+			passwd = 'th1s_1s_ch4tdb_4dm1n_p4ssw0rd',
+			host = '172.22.0.5',
 			db = 'chatdb',
 			charset = 'utf8'
 		)
@@ -340,6 +341,6 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	pass
 
 if __name__ == "__main__":
-	HOST, PORT = "0.0.0.0", 9091
+	HOST, PORT = "172.22.0.3", 9091
 	server = ThreadedTCPServer((HOST,PORT), ThreadedTCPRequestHandler)
 	server.serve_forever()

@@ -87,6 +87,7 @@
 	async function getmessage(id){
 		focusedUser = id;
 		profileImage = await getProfileImage(focusedUser);
+
 		$(".active_chat").attr("class", $(".active_chat").attr("class").replace(" active_chat",""));
 		$(`.chat_list.${id}`).attr("class",`chat_list ${id} active_chat`);
 		if(getchatmsg(id) == false){
@@ -96,7 +97,12 @@
 	}
 
   async function getProfileImage(id) {
-		return await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r});
+  	profileImage = localStorage.getItem(id)
+		if(profileImage == null){
+			profileImage = await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r});
+			localStorage.setItem(id,profileImage)
+		}
+		return profileImage
   }
 
 	async function doUpload(fis){
