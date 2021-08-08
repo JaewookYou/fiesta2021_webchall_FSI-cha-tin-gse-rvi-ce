@@ -76,7 +76,8 @@ def socksend(sock, content):
     r=""
     try:
         with block:
-            sock.send(content)
+            t = sock.send(content)
+            print(f"@@@@@@@@@@@@[+] sock send.. {t}")
             r = sock.recv(1024*1024*80).decode('latin-1')
             return json.loads(r)
     except:
