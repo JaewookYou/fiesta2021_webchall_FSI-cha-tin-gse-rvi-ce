@@ -76,7 +76,7 @@ def socksend(sock, content):
     r=""
     try:
         with block:
-            t = sock.send(content)
+            t = sock.sendall(content)
             print(f"@@@@@@@@@@@@[+] sock send.. {t}")
             r = sock.recv(1024*1024*80).decode('latin-1')
             return json.loads(r)
