@@ -33,9 +33,9 @@ services:
     container_name: mysql-db
     environment:
       MYSQL_ROOT_PASSWORD: "mysq1_r00t_p4ssw0rd_d0_n0t_cr4ck_th1s"
-      MYSQL_DATABASE: "chatdb"
     volumes:
-      - "./data/mysql/:/docker-entrypoint-initdb.d/"
+      - "./data/db/:/docker-entrypoint-initdb.d/"
+    command: mysqld --innodb-buffer-pool-size=16M
     networks:
       backend:
         ipv4_address: 172.22.0.5
