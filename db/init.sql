@@ -37,6 +37,7 @@ create table flag (
 insert into flag values("fiesta{this_is_test_flag}");
 insert into user (userid, userpw, userProfileImagePath) values("admin", "admin", "admin.png");
 insert into user (userid, userpw, userProfileImagePath) values("guest", "guest", "guest.png");
+insert into user (userid, userpw, userProfileImagePath) values("welcomebot", "th1s_1s_w3lc0me_b0t_p4ssw0rd", "welcomebot.png");
 
 insert into chatroom (user_a, user_b, lastmsg, lastdate) values("admin", "guest", "lastmsg", "2021-08-06 23:48:00");
 insert into chat (chatfrom, chatto, chatmsg, chatdate) values("admin", "guest", "firstmsg", "2021-08-06 23:47:00");

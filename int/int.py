@@ -2,7 +2,7 @@
 import socketserver
 import pymysql
 import threading
-import json, re, base64, os, datetime
+import json, re, base64, os, datetime, time
 import logging, traceback
 logging.basicConfig(level=logging.ERROR)
 
@@ -26,6 +26,7 @@ class mysqlapi:
 			db = 'chatdb',
 			charset = 'utf8'
 		)
+		self.conn.autocommit(True)
 		self.cursor = self.conn.cursor(pymysql.cursors.DictCursor)
 
 	def safeQuery(self, req):
@@ -78,7 +79,7 @@ class mysqlapi:
 			with open(uploadFilePath,"wb") as f:
 				f.write(cont)
 
-			resp = f"[+] upload {uploadFilePath} success!"
+			resp = "[+] register success"
 			
 		except:
 			logging.error(traceback.format_exc())
@@ -98,17 +99,18 @@ class mysqlapi:
 
 	def getChatRoom(self, req):
 		query = f"select roomseq from chatroom where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
-		print(f"[+] query(login) - {query}")
+		print(f"[+] query(getChatRoom) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(login) - {result}")
+		print(f"[+] result(getChatRoom) - {result}")
 		if result != ():
 			return result
 		else:
 			return False
 
 	def createChatRoom(self, req):
-		query = f"insert into (user_a, user_b, lastmsg, lastdate) chatroom values('{req['from']}', '{req['to']}', null, null)"
+		query = f"insert into chatroom (user_a, user_b, lastmsg, lastdate) values('{req['from']}', '{req['to']}', null, null)"
+		print(f"[+] query(createChatRoom) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 		if self.getChatRoom(req) != ():
@@ -118,6 +120,7 @@ class mysqlapi:
 
 	def updateRecentChat(self, req):
 		query = f"update chatroom set lastmsg='{req['msg'][:30]}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
+		print(f"[+] query(updateRecentChat) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 
@@ -147,13 +150,14 @@ class mysqlapi:
 		req['date'] = whatTimeIsIt()
 		req['msg'] = req['filename']
 		
+		print(req)
+		
 		chatroomNum = self.getChatRoom(req)
 		if not chatroomNum:
 			if not self.createChatRoom(req):
 				return "[x] create chat room error"
 
-		self.updateRecentChat(req)
-
+		self.updateRecentChat(req)		
 		self.insertChat(req, isImage=True)
 
 		req['isImage'] = True
@@ -198,31 +202,6 @@ class mysqlapi:
 		else:
 			return False
 
-		# var data = {
-		# 	"command": "imagesend",
-		# 	"date": maketime(),
-		# 	"from": userid,
-		# 	"to": $("input[name=to]").val(),
-		# 	"msg": $("input[name=msg]").val()
-		# };
-
-		# create table chatroom (
-		#    roomseq int not null auto_increment primary key,
-		#    user_a varchar(50),
-		#    user_b varchar(50),
-		#    lastmsg varchar(1000),
-		#    lastdate datetime
-		# ) default character set utf8 collate utf8_general_ci;
-
-		# create table chat (
-		#    chatseq int not null auto_increment primary key,
-		#    chatfrom varchar(50),
-		#    chatto varchar(50),
-		#    chatmsg varchar(1000),
-		#    chatdate datetime
-		# ) default character set utf8 collate utf8_general_ci;
-
-
 	def getlist(self, req):
 		req = self.safeQuery(req)
 		query = f"select * from chatroom where user_a='{req['from']}' or user_b='{req['from']}' order by lastdate desc"
@@ -239,6 +218,32 @@ class mysqlapi:
 		else:
 			return False
 
+	def roomadd(self, req):
+		req = self.safeQuery(req)
+		req['userid'] = req['to']
+		if not self.duplicatedCheck(req):
+			return f"[x] there has no id - {req['to']}"
+
+		req['date'] = whatTimeIsIt()
+		
+		chatroomNum = self.getChatRoom(req)
+		if not chatroomNum:
+			if not self.createChatRoom(req):
+				return "[x] create chat room error"
+			else:
+				if req['to'] == "welcomebot":
+					req['msg'] = "Hello! This is our first chat! Welcome to FSI Chat"
+				else:
+					req['msg'] = f"{req['from']} make room with {req['to']}! check this"
+				
+				self.updateRecentChat(req)
+
+				self.insertChat(req)
+				return req
+		else:
+			return "[x] already have room error"
+
+
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 	def setup(self):
@@ -252,7 +257,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 			self.is_mysql_connected= True
 
 		while 1:
-			self.data = self.request.recv(4096).strip().decode()
+			self.data = self.request.recv(900000).strip().decode()
+
 			print(self.client_address[0])
 			if not self.data:
 				break
@@ -310,10 +316,19 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 						else:
 							self.request.sendall(b"[x] getlist fail")
 
+					elif cmd == "roomadd":
+						r = self.mysqlapi.roomadd(req)
+						if r:
+							self.request.sendall(json.dumps(r).encode())
+						else:
+							self.request.sendall(b"[x] roomadd fail")
+
+
 					else:
 						self.request.sendall(b"[x] please input right command")
 				
 			except:
+				print(self.data)
 				logging.error(traceback.format_exc())
 				self.request.sendall(b"[x] internal server error - exception")
 

@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.ERROR)
 
 app = flask.Flask(__name__)
 app.secret_key = "asdfasdfadsf"
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 80 * 1024 * 1024
 socket_io = flask_socketio.SocketIO(app)
 chatdata = {}
 users = {}
@@ -98,23 +98,6 @@ def sioemit(namespace, content, room=None):
 def index():
     return flask.redirect(flask.url_for("login"))
 
-@app.route("/getlist", methods=["GET"])
-def getlist():
-    data = {
-        "result":[
-            {
-                "id" : "admin",
-                "date" : "Jul 17",
-                "text" : "hello there"
-            },
-            {
-                "id" : "guest",
-                "date" : "Jul 16",
-                "text" : "this is guest"
-            }
-        ]
-    }
-    return data
 
 @app.route("/logout")
 def logout():
@@ -183,6 +166,10 @@ def register():
             return flask.redirect(flask.url_for("login", msg=resp))
         
         fileContent = base64.b64encode(profileImageFile.read())
+        if len(fileContent) > 900000:
+            resp = "[x] profile image too big"
+            return flask.redirect(flask.url_for("login", msg=resp))
+            
         if type(fileContent) == bytes:
             fileContent = fileContent.decode()
 
@@ -193,7 +180,8 @@ def register():
             profileImageFile.filename,
             fileContent 
         )
-
+        if "[+] register success" == resp:
+            resp = "false"
         return flask.redirect(flask.url_for("login", msg=resp))
 
 @app.route("/getProfileImage", methods=["GET"])
@@ -241,108 +229,161 @@ def join(content):
 @socket_io.on("getlist")
 def getlist(content):
     if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))
+        resp = "[x] please login"
+        sioemit("getlist", resp, flask.session["channel"])
+        return
 
     try:
         if type(content) != dict:
             content = content.encode('latin-1')
             content = json.loads(content)
-
         if content["from"] != flask.session["userid"]:
             print(f"[x] {content['from']} != {flask.session['userid']}")
-            return "[x] request from user is different from session"
-
+            resp = "[x] request from user is different from session"
+            sioemit("getlist", resp, users[flask.session["userid"]])
+            return
     except Exception as e:
-        logging.error(traceback.format_exc())
         pass
 
     resp = socksend(users[flask.session["uuid"]], content)
-    print(resp)
+
     sioemit("getlist", resp, users[flask.session["userid"]])
 
 @socket_io.on("getchatmsg")
 def getchatmsg(content):
     if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))
+        resp = "[x] please login"
+        sioemit("getchatmsg", resp, flask.session["channel"])
+        return
 
     try:
         if type(content) != dict:
             content = content.encode('latin-1')
             content = json.loads(content)
-
         if content["from"] != flask.session["userid"]:
             print(f"[x] {content['from']} != {flask.session['userid']}")
-            return "[x] request from user is different from session"
-
+            resp = "[x] request from user is different from session"
+            sioemit("getchatmsg", resp, flask.session["channel"])
+            return
     except Exception as e:
-        logging.error(traceback.format_exc())
-        pass
+        resp = "[x] error with verifying data/user"
+        sioemit("getchatmsg", resp, flask.session["channel"])
+        return
 
     resp = socksend(users[flask.session["uuid"]], content)
 
+    new_resp = []
+    for i in resp:
+        if i['isImage'] == True:
+            uploadFileRoot = f"{os.path.abspath('./')}/uploads/{i['chatfrom']}/"
+            uploadFilePath = uploadFileRoot + i['chatmsg']
+            try:
+                with open(uploadFilePath, 'rb') as f:
+                    i['content'] = f.read().decode()
+            except:
+                i['content'] = "x"
+
+        new_resp.append(i)
+
     sioemit("getchatmsg", resp, users[flask.session["userid"]])
+
+@socket_io.on("roomadd")
+def roomadd(content):
+    if not sessionCheck(loginCheck=True):
+        resp = "[x] please login"
+        sioemit("roomadd", resp, flask.session["channel"])
+        return
+
+    try:
+        if type(content) != dict:
+            content = content.encode('latin-1')
+            content = json.loads(content)
+        if content["from"] != flask.session["userid"]:
+            print(f"[x] {content['from']} != {flask.session['userid']}")
+            resp = "[x] request from user is different from session"
+            sioemit("roomadd", resp, flask.session["channel"])
+            return
+    except Exception as e:
+        resp = "[x] error with verifying data/user"
+        sioemit("roomadd", resp, flask.session["channel"])
+        return
+
+    resp = socksend(users[flask.session["uuid"]], content)
+
+    if 'msg' in resp:
+        sioemit("roomadd", resp, flask.session["channel"])
+
+        if type(resp) != dict:
+            resp = {"result": 0, "msg":resp}
+        else:
+            resp = {"result": 1, "msg":resp}
+
+        sioemit("newchat", resp, flask.session["channel"])
+    else:
+        sioemit("roomadd", resp, flask.session["channel"])
+
 
 
 @socket_io.on("imagesend")
 def imagesend(content):        
     if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))
+        resp = "[x] please login"
+        sioemit("uploadImageResult", resp, flask.session["channel"])
+        return
+
     resp = ""
 
     if content["from"] != flask.session["userid"]:
         print(f"[x] {content['from']} != {flask.session['userid']}")
-        return "[x] request from user is different from session"
+        resp = "[x] request from user is different from session"
+        sioemit("uploadImageResult", resp, flask.session["channel"])
+        return
 
     uploadPath = ""
     uploadFileRoot = f"{os.path.abspath('./')}/uploads/{content['from']}/"
     if not os.path.exists(uploadFileRoot) and not os.path.isdir(uploadFileRoot):
         os.makedirs(uploadFileRoot)
 
-    filename = secureFileName(content['filename'])
+    content['filename'] = secureFileName(content['filename'])
     
-    if filename == "":
+    if content['filename'] == "":
         resp = f"[x] please attach a image"
-        return resp
+        sioemit("uploadImageResult", resp, flask.session["channel"])
+        return
 
-    uploadFilePath = uploadFileRoot + filename
+    uploadFilePath = uploadFileRoot + content['filename']
 
     try:
         with open(uploadFilePath, 'wb') as f:
             f.write(content['content'].encode())
-
-        sioemit("uploadImageResult", resp, flask.session["channel"])
-        
-        resp = socksend(users[flask.session["uuid"]], content)
-
-        uploadFilePath = uploadFileRoot + resp['filename']
-        
-        with open(uploadFilePath, 'rb') as f:
-            resp['content'] = f.read().decode()
-
-        if b"sendtome" in content:
-            sendtome_flag = True
-        else:
-            sendtome_flag = False
-
-        print(f"/!!!!!!!here!!!!!/ {resp}")
-
-        if sendtome_flag:
-            sioemit("newchat", resp, users[content['to']])
-        else:
-            sioemit("newchat", resp, users[content['to']])
-            sioemit("newchat", resp, users[content['from']])
-
+        content.pop('content')
     except:
-        print(f"/!!!!!!!here!!!!!/ {resp}")
+        logging.error(traceback.format_exc())
         resp = f'[x] upload "{uploadFilePath}" error'
-
         sioemit("uploadImageResult", resp, flask.session["channel"])
+        
+    resp = socksend(users[flask.session["uuid"]], content)
+
+    if b"sendtome" in content:
+        sendtome_flag = True
+    else:
+        sendtome_flag = False
+
+    sioemit("uploadImageResult", resp, flask.session["channel"])
+
+    if sendtome_flag:
+        sioemit("uploadImageResult", resp, users[content['to']])
+    else:
+        sioemit("uploadImageResult", resp, users[content['to']])
+        sioemit("uploadImageResult", resp, users[content['from']])
 
 
 @socket_io.on("chatsend")
 def chatsend(content):
     if not sessionCheck(loginCheck=True):
-        return flask.redirect(flask.url_for("login"))
+        resp = "[x] please login"
+        sioemit("newchat", resp, flask.session["channel"])
+        return
 
     try:
         if type(content) != dict:
