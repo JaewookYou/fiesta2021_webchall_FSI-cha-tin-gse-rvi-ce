@@ -1,5 +1,5 @@
 FROM ubuntu:latest
-WORKDIR /app
+WORKDIR /app/app
 RUN apt-get update -y
 RUN apt-get install -y python3-pip python3-dev build-essential libcurl4-openssl-dev libssl-dev
 RUN apt-get install -y net-tools procps

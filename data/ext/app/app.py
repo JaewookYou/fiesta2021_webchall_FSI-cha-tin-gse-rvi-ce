@@ -77,9 +77,10 @@ def socksend(sock, content):
     try:
         with block:
             sock.sendall(content)
-            r = sock.recv(1024*1024*80).decode('latin-1')
+            r = sock.recv(900000).decode('latin-1')
             return json.loads(r)
     except:
+        logging.error(traceback.format_exc())
         pass
 
     return r
@@ -133,6 +134,7 @@ def login():
             return flask.render_template("login.html", msg="invalid userid or userpw")
         
         queryResult = doLoginQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"])
+        print(f"[+]ext login query result {queryResult}")
         if "userid" in queryResult:
             flask.session["userid"] = queryResult["userid"]
             flask.session["isLogin"] = True
@@ -167,7 +169,7 @@ def register():
             return flask.redirect(flask.url_for("login", msg=resp))
         
         fileContent = base64.b64encode(profileImageFile.read())
-        if len(fileContent) > 900000:
+        if len(fileContent) > 16384:
             resp = "[x] profile image too big"
             return flask.redirect(flask.url_for("login", msg=resp))
             

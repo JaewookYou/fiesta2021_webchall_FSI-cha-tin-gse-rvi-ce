@@ -264,10 +264,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 		
 	def handle(self):
 		try:
-			self.is_mysql_connected
+			self.mysqlapi.conn.open
+			if not self.mysqlapi.conn.open:
+				self.mysqlapi = mysqlapi()
 		except:
 			self.mysqlapi = mysqlapi()
-			self.is_mysql_connected= True
 
 		while 1:
 			self.data = self.recvall(self.request).strip().decode()
@@ -282,6 +283,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 					if cmd == "login":
 						r = self.mysqlapi.doLogin(req)
+						print(f"[+] internal login {r}")
+						print(f"[+] internal login2 {json.dumps(r[0]).encode()}")
 						if r:
 							self.request.sendall(json.dumps(r[0]).encode())
 						else:

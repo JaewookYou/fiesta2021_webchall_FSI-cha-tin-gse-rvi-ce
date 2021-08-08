@@ -107,10 +107,11 @@
 		})
 
 		sock.on('getlist', async function(datas){
-			if(datas.length < 1 || typeof(datas) == "string"){
-				console.log(datas);
+			if(datas.length < 1){
 				roomadd(userid);
 				roomadd('welcomebot');
+			} else if (typeof(datas) == "string"){
+				console.log(datas);
 				return;
 			}
 			console.log(datas);
