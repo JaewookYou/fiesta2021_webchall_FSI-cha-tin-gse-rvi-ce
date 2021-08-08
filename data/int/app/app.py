@@ -18,6 +18,7 @@ def secureFileName(filename):
 def whatTimeIsIt():
 	return datetime.datetime.strftime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S")
 
+
 class mysqlapi:
 	def __init__(self):
 		self.conn = pymysql.connect(
@@ -249,6 +250,17 @@ class mysqlapi:
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 	def setup(self):
 		print('{}:{} connected'.format(*self.client_address))
+
+	def recvall(self, sock):
+	    BUFF_SIZE = 4096 # 4 KiB
+	    data = b''
+	    while True:
+	        part = sock.recv(BUFF_SIZE)
+	        data += part
+	        if len(part) < BUFF_SIZE:
+	            # either 0 or end of data
+	            break
+	    return data
 		
 	def handle(self):
 		try:
@@ -258,7 +270,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 			self.is_mysql_connected= True
 
 		while 1:
-			self.data = self.request.recv(900000).strip().decode()
+			self.data = self.recvall(self.request).strip().decode()
 
 			print(self.client_address[0])
 			if not self.data:
