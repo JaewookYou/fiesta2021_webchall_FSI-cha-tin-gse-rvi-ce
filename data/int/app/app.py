@@ -341,6 +341,6 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	pass
 
 if __name__ == "__main__":
-	HOST, PORT = "172.22.0.3", 9091
+	HOST, PORT = "0.0.0.0", 9091
 	server = ThreadedTCPServer((HOST,PORT), ThreadedTCPRequestHandler)
 	server.serve_forever()

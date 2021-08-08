@@ -9,6 +9,8 @@ services:
     tty: true
     depends_on:
       - internal_server
+    ports:
+      - "9090:9090"
     networks:
       backend:
         ipv4_address: 172.22.0.3
