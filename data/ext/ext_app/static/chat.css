@@ -86,6 +86,7 @@ img{ max-width:100%;}
 .incoming_msg_img {
   display: inline-block;
   width: 6%;
+
 }
 .received_msg {
   display: inline-block;
@@ -125,6 +126,7 @@ img{ max-width:100%;}
   width:100%;
   word-break:break-all;
 }
+.incoming_msg{ overflow:hidden; margin:26px 0 26px;}
 .outgoing_msg{ overflow:hidden; margin:26px 0 26px;}
 .sent_msg {
   float: right;
@@ -137,6 +139,7 @@ img{ max-width:100%;}
   font-size: 15px;
   min-height: 48px;
   margin-left: 5px;
+  width: 100%;
 }
 
 .input_msg_write {

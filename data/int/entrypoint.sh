@@ -1,4 +1,6 @@
 #!/bin/bash
-mkdir -p /app/app/uploads/welcomebot/
-wget http://arang.kr/welcomebot.png -O /app/app/uploads/welcomebot/welcomebot.png
-python3 /app/app/app.py
+mkdir -p /app/int_app/uploads/welcomebot/
+wget http://arang.kr/welcomebot.png -O /app/int_app/uploads/welcomebot/welcomebot.png
+rm /etc/localtime
+ln -s /usr/share/zoneinfo/Asia/Seoul /etc/localtime
+python3 /app/int_app/app.py

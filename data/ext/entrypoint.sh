@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 /app/app/app.py&
+python3 /app/ext_app/app.py&

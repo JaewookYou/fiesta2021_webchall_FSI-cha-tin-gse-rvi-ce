@@ -160,6 +160,10 @@
 
 		$("#sendform").submit(function(event){
 			event.preventDefault();
+			if ($("input[name=msg]").val() == ""){
+				alert("please input chat content");
+				return;
+			}
 			var data = {
 				"command": "chatsend",
 				"date": maketime(),

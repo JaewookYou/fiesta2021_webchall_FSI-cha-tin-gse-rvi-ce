@@ -88,6 +88,11 @@ def socksend(sock, content):
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
         users[flask.session["uuid"]].connect(flask.session["host"])
         return socksend(users[flask.session["uuid"]], content)
+    except OSError:
+        print(f"[+] ext sock resend(oserror)")
+        users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
+        users[flask.session["uuid"]].connect(flask.session["host"])
+        return socksend(users[flask.session["uuid"]], content)
     except:
         logging.error(traceback.format_exc())
         pass
@@ -406,6 +411,9 @@ def chatsend(content):
             print(f"[x] {content['from']} != {flask.session['userid']}")
             return "[x] request from user is different from session"
 
+        if content["msg"] == "":
+            return "[x] blank content. please input content"
+
     except Exception as e:
         logging.error(traceback.format_exc())
         pass
@@ -438,8 +446,8 @@ def connected():
 @socket_io.on("disconnect")
 def disconnected():
     print("disconnected")
-    flask.session["sock"].close()
-    print(flask.session["sock"])
+    users[flask.session["uuid"]].close()
+    print(users[flask.session["uuid"]])
 
 
 if __name__ == "__main__":
