@@ -37,6 +37,7 @@
 
 		// when get a new chat message
 		sock.on('newchat', function(data){
+			console.log("[+] newchat? "+data)
 			if(data.result == 0){
 				console.log("[x] err... "+data.msg);
 			}else if(data.result == 1 && focusedUser == data.msg.from){
@@ -71,7 +72,6 @@
 			var cnt = 0;
 			
 			for (var data of datas) {
-				console.log(data);
 				var datestr = getDateStr(data.chatdate)
 
 				if(data.isImage == true){
@@ -107,18 +107,14 @@
 		})
 
 		sock.on('getlist', async function(datas){
-			if(datas.length < 1){
+			if(datas.length < 1 || typeof(datas) == "string"){
 				roomadd(userid);
 				roomadd('welcomebot');
-			} else if (typeof(datas) == "string"){
-				console.log(datas);
 				return;
 			}
-			console.log(datas);
 			var appendHTML = "";
 			var cnt = 0;
 			for (var data of datas) {
-				console.log(data);
 				var active_chat = "";
 				var chatto;
 				if (cnt == 0) { active_chat = "active_chat"; }
@@ -130,7 +126,6 @@
 				}
 				else if(data.user_b == userid && data.user_a != userid){
 					chatto = data.user_a;
-					console.log("?? "+data.user_b+" "+chatto)
 				}
 				var chatto_profileImage = await getProfileImage(chatto);
 

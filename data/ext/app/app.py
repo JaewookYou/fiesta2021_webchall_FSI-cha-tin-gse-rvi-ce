@@ -4,6 +4,7 @@ import flask_socketio
 import flask
 import datetime, uuid, socket, json, threading, os, base64, re
 import logging, traceback
+import ssl
 logging.basicConfig(level=logging.ERROR)
 
 app = flask.Flask(__name__)
@@ -27,7 +28,7 @@ def doLoginQuery(sock, userid, userpw):
     return r
 
 def doRegisterQuery(sock, userid, userpw, filename, profileImageContent):
-    reqPacket = {
+    reqPacket = { 
         "command":"register",
         "userid":userid,
         "userpw":userpw,
@@ -63,9 +64,10 @@ def sessionCheck(loginCheck=False):
         flask.session["uuid"] = str(uuid.uuid1())
 
     if flask.session["uuid"] not in users:
+        flask.session["host"] = ("172.22.0.4",9091)
         print(f"[+] new socket conn {flask.session['uuid']}")
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        users[flask.session["uuid"]].connect(("172.22.0.4",9091))
+        users[flask.session["uuid"]].connect(flask.session["host"])
 
     return False
 
@@ -76,9 +78,16 @@ def socksend(sock, content):
     r=""
     try:
         with block:
-            sock.sendall(content)
+            print(f"[+] ext sock send {content}")
+            sock.send(content)
             r = sock.recv(900000).decode('latin-1')
+            print(f"[+] ext sock recv {r}")
             return json.loads(r)
+    except BrokenPipeError as e:
+        print(f"[+] ext sock resend {str(e)}")
+        users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
+        users[flask.session["uuid"]].connect(flask.session["host"])
+        return socksend(users[flask.session["uuid"]], content)
     except:
         logging.error(traceback.format_exc())
         pass
@@ -170,7 +179,7 @@ def register():
         
         fileContent = base64.b64encode(profileImageFile.read())
         if len(fileContent) > 16384:
-            resp = "[x] profile image too big"
+            resp = "[x] profile image too big. under 1.6k plz"
             return flask.redirect(flask.url_for("login", msg=resp))
             
         if type(fileContent) == bytes:
@@ -217,10 +226,10 @@ def join(content):
             
             chatserver = content['chatserver']
             t = chatserver.split(':')
-            c = (t[0], int(t[1]))
+            flask.session["host"] = (t[0], int(t[1]))
             
             users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-            users[flask.session["uuid"]].connect(c)
+            users[flask.session["uuid"]].connect(flask.session["host"])
 
         flask.session["channel"] = channel
         flask_socketio.join_room(channel)
@@ -320,8 +329,8 @@ def roomadd(content):
             resp = {"result": 0, "msg":resp}
         else:
             resp = {"result": 1, "msg":resp}
-
-        sioemit("newchat", resp, flask.session["channel"])
+        
+        sioemit("newchat", resp, users[resp["msg"]["to"]])
     else:
         sioemit("roomadd", resp, flask.session["channel"])
 

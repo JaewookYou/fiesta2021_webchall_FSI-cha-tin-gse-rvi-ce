@@ -21,7 +21,7 @@ def whatTimeIsIt():
 
 class mysqlapi:
 	def __init__(self):
-		self.conn = pymysql.connect(
+		self.conn = pymysql.connect( 
 			user = 'chatdb_admin',
 			passwd = 'th1s_1s_ch4tdb_4dm1n_p4ssw0rd',
 			host = '172.22.0.5',
@@ -171,10 +171,11 @@ class mysqlapi:
 		req = self.safeQuery(req)
 
 		query = f"select * from chat where (chatfrom='{req['from']}' and chatto='{req['to']}') or (chatfrom='{req['to']}' and chatto='{req['from']}') order by 1 desc limit 0, 30"
-		
+		print(f"[+] query(getChatMsg) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		
+		print(f"[+] result(getChatMsg) - {result}")
+
 		if result != ():
 			r = []
 			for i in result:
@@ -188,10 +189,10 @@ class mysqlapi:
 		req = self.safeQuery(req)
 
 		query = f"select userProfileImagePath from user where userid='{req['userid']}'"
-		print(f"[+] query(getChatMsg) - {query}")
+		print(f"[+] query(getProfileImage) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getChatMsg) - {result}")
+		print(f"[+] result(getProfileImage) - {result}")
 		if result != ():
 			uploadFileRoot = f"{os.path.abspath('./')}/uploads/{req['userid']}/"
 			uploadFilePath = f"{uploadFileRoot}{result[0]['userProfileImagePath']}"
@@ -207,10 +208,10 @@ class mysqlapi:
 	def getlist(self, req):
 		req = self.safeQuery(req)
 		query = f"select * from chatroom where user_a='{req['from']}' or user_b='{req['from']}' order by lastdate desc"
-		print(f"[+] query(getChatMsg) - {query}")
+		print(f"[+] query(getlist) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getChatMsg) - {result}")
+		print(f"[+] result(getlist) - {result}")
 		if result != ():
 			r = []
 			for i in result:
@@ -222,13 +223,16 @@ class mysqlapi:
 
 	def roomadd(self, req):
 		req = self.safeQuery(req)
+		print(f"[+] roomadd called {req}")
 		req['userid'] = req['to']
 		if not self.duplicatedCheck(req):
+			print(f"[+] roomadd dupcheck shit")
 			return f"[x] there has no id - {req['to']}"
 
 		req['date'] = whatTimeIsIt()
 		
 		chatroomNum = self.getChatRoom(req)
+		print(f"[+] roomadd not chatroomNum {chatroomNum}")
 		if not chatroomNum:
 			if not self.createChatRoom(req):
 				return "[x] create chat room error"
