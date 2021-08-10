@@ -97,10 +97,10 @@
 	}
 
   async function getProfileImage(id) {
-  	profileImage = localStorage.getItem(id)
+  	profileImage = sessionStorage.getItem(id)
 		if(profileImage == null){
 			profileImage = await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r});
-			localStorage.setItem(id,profileImage)
+			sessionStorage.setItem(id,profileImage)
 		}
 		return profileImage
   }

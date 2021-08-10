@@ -175,17 +175,17 @@ def register():
             return flask.redirect(flask.url_for("chat"))
 
         if not checkUserIDPW(flask.request.form["userid"], flask.request.form["userpw"]):
-            return flask.render_template("login.html", msg="invalid userid or userpw")
+            return flask.render_template("register.html", msg="invalid userid or userpw")
 
         profileImageFile = flask.request.files["profileImage"]
         if profileImageFile.filename == "":
             resp = "[x] please attach a profile image"
-            return flask.redirect(flask.url_for("login", msg=resp))
+            return flask.redirect(flask.url_for("register", msg=resp))
         
         fileContent = base64.b64encode(profileImageFile.read())
         if len(fileContent) > 16384:
             resp = "[x] profile image too big. under 1.6k plz"
-            return flask.redirect(flask.url_for("login", msg=resp))
+            return flask.redirect(flask.url_for("register", msg=resp))
             
         if type(fileContent) == bytes:
             fileContent = fileContent.decode()

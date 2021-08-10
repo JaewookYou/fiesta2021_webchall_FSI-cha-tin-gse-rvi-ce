@@ -1,6 +1,4 @@
-
 function ab2str(buf) {
-	console.log("xxxxxxxxxx "+typeof(buf)+buf)
 	return new TextDecoder().decode(buf)
 }
 
