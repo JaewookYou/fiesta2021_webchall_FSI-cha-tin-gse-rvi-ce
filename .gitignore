@@ -1,2 +1,2 @@
-data/ext/app/uploads/*
-data/int/app/uploads/*
+data/ext/ext_app/uploads/*
+data/int/int_app/uploads/*
