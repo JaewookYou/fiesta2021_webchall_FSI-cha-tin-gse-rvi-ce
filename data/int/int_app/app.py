@@ -7,7 +7,7 @@ import pymysql
 import threading
 import json, re, base64, os, datetime, time
 import logging, traceback
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 
 lock = threading.Lock()
 
@@ -41,10 +41,8 @@ class mysqlapi:
 	def duplicatedCheck(self, req):
 		req = self.safeQuery(req)
 		query = f"select userid from chatdb.user where userid='{req['userid']}'"
-		print(f"[+] query(dupchk) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(dupchk) - {result}")
 		
 		if result != ():
 			return True
@@ -55,10 +53,10 @@ class mysqlapi:
 	def doLogin(self, req):
 		req = self.safeQuery(req)
 		query = f"select userid from chatdb.user where userid='{req['userid']}' and userpw='{req['userpw']}'"
-		print(f"[+] query(login) - {query}")
+		logging.info(f"[+] query(login) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(login) - {result}")
+		logging.info(f"[+] result(login) - {result}")
 		return result
 
 	def doRegister(self, req):
@@ -74,7 +72,7 @@ class mysqlapi:
 			filename = secureFileName(req['filename'])
 			uploadFilePath = uploadFileRoot + filename
 			
-			print(f"[+] upload path - {uploadFilePath}")
+			logging.info(f"[+] upload path - {uploadFilePath}")
 			
 			cont = base64.b64decode(req['profileImageContent'])
 			if type(cont) == str:
@@ -90,7 +88,7 @@ class mysqlapi:
 			resp = f'[x] upload "{uploadFilePath}" error'
 
 		query = f"insert into user (userid, userpw, userProfileImagePath) values('{req['userid']}', '{req['userpw']}', '{filename}')"
-		print(f"[+] query(register) - {query}")
+		logging.info(f"[+] query(register) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 		
@@ -102,10 +100,8 @@ class mysqlapi:
 
 	def getChatRoom(self, req):
 		query = f"select roomseq from chatroom where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
-		print(f"[+] query(getChatRoom) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getChatRoom) - {result}")
 		if result != ():
 			return result
 		else:
@@ -113,7 +109,7 @@ class mysqlapi:
 
 	def createChatRoom(self, req):
 		query = f"insert into chatroom (user_a, user_b, lastmsg, lastdate) values('{req['from']}', '{req['to']}', null, null)"
-		print(f"[+] query(createChatRoom) - {query}")
+		logging.info(f"[+] query(createChatRoom) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 		if self.getChatRoom(req) != ():
@@ -123,13 +119,11 @@ class mysqlapi:
 
 	def updateRecentChat(self, req):
 		query = f"update chatroom set lastmsg='{req['msg'][:30]}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
-		print(f"[+] query(updateRecentChat) - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 
 	def insertChat(self, req, isImage=False):
 		query = f"insert into chat (chatfrom, chatto, chatmsg, chatdate{', isImage' if isImage else ''}) values('{req['from']}', '{req['to']}', '{req['msg']}', '{req['date']}'{', true' if isImage else ''})"
-		print(f"[+] insertChat query - {query}")
 		self.cursor.execute(query)
 		self.conn.commit()
 
@@ -153,8 +147,6 @@ class mysqlapi:
 		req['date'] = whatTimeIsIt()
 		req['msg'] = req['filename']
 		
-		print(req)
-		
 		chatroomNum = self.getChatRoom(req)
 		if not chatroomNum:
 			if not self.createChatRoom(req):
@@ -170,12 +162,9 @@ class mysqlapi:
 
 	def getChatMsg(self, req):
 		req = self.safeQuery(req)
-
 		query = f"select * from chat where (chatfrom='{req['from']}' and chatto='{req['to']}') or (chatfrom='{req['to']}' and chatto='{req['from']}') order by 1 desc limit 0, 30"
-		print(f"[+] query(getChatMsg) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getChatMsg) - {result}")
 
 		if result != ():
 			r = []
@@ -190,16 +179,16 @@ class mysqlapi:
 		req = self.safeQuery(req)
 
 		query = f"select userProfileImagePath from user where userid='{req['userid']}'"
-		print(f"[+] query(getProfileImage) - {query}")
+		logging.info(f"[+] query(getProfileImage) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getProfileImage) - {result}")
+		logging.info(f"[+] result(getProfileImage) - {result}")
 		if result != ():
 			uploadFileRoot = f"{os.path.abspath('./')}/uploads/{req['userid']}/"
 			uploadFilePath = f"{uploadFileRoot}{result[0]['userProfileImagePath']}"
 			with open(uploadFilePath, 'rb') as f:
 				cont = f.read()
-			
+
 			convertedContent = f"data:image/png;base64,{base64.b64encode(cont).decode()}"
 			resp = {"filename":result[0]['userProfileImagePath'], "content":convertedContent}
 			return resp
@@ -210,10 +199,8 @@ class mysqlapi:
 	def getlist(self, req):
 		req = self.safeQuery(req)
 		query = f"select * from chatroom where user_a='{req['from']}' or user_b='{req['from']}' order by lastdate desc"
-		print(f"[+] query(getlist) - {query}")
 		self.cursor.execute(query)
 		result = self.cursor.fetchall()
-		print(f"[+] result(getlist) - {result}")
 		if result != ():
 			r = []
 			for i in result:
@@ -225,16 +212,14 @@ class mysqlapi:
 
 	def roomadd(self, req):
 		req = self.safeQuery(req)
-		print(f"[+] roomadd called {req}")
 		req['userid'] = req['to']
 		if not self.duplicatedCheck(req):
-			print(f"[+] roomadd dupcheck shit")
+			logging.info(f"[+] roomadd dupcheck shit")
 			return f"[x] there has no id - {req['to']}"
 
 		req['date'] = whatTimeIsIt()
 		
 		chatroomNum = self.getChatRoom(req)
-		print(f"[+] roomadd not chatroomNum {chatroomNum}")
 		if not chatroomNum:
 			if not self.createChatRoom(req):
 				return "[x] create chat room error"
@@ -255,7 +240,7 @@ class mysqlapi:
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 	def setup(self):
-		print('{}:{} connected'.format(*self.client_address))
+		logging.info('{}:{} connected'.format(*self.client_address))
 
 	def recvall(self, sock):
 	    BUFF_SIZE = 4096 # 4 KiB
@@ -279,7 +264,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 		while 1:
 			self.data = self.recvall(self.request).strip().decode()
 
-			print(self.client_address[0])
 			if not self.data:
 				break
 			try:
@@ -289,8 +273,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 					if cmd == "login":
 						r = self.mysqlapi.doLogin(req)
-						print(f"[+] internal login {r}")
-						print(f"[+] internal login2 {json.dumps(r[0]).encode()}")
 						if r:
 							self.request.sendall(json.dumps(r[0]).encode())
 						else:
@@ -350,12 +332,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 						self.request.sendall(b"[x] please input right command")
 				
 			except:
-				print(self.data)
 				logging.error(traceback.format_exc())
 				self.request.sendall(b"[x] internal server error - exception")
 
 	def finish(self):
-		print('{}:{} disconnected'.format(*self.client_address))
+		logging.info('{}:{} disconnected'.format(*self.client_address))
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

@@ -7,7 +7,9 @@ import flask
 import datetime, uuid, socket, json, threading, os, base64, re
 import logging, traceback
 import ssl
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
+
 
 app = flask.Flask(__name__)
 app.secret_key = os.urandom(16)
@@ -67,7 +69,7 @@ def sessionCheck(loginCheck=False):
 
     if flask.session["uuid"] not in users:
         flask.session["host"] = ("172.22.0.4",9091)
-        print(f"[+] new socket conn {flask.session['uuid']}")
+        logging.info(f"[+] new socket conn {flask.session['uuid']}")
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         users[flask.session["uuid"]].connect(flask.session["host"])
 
@@ -80,23 +82,20 @@ def socksend(sock, content):
     r=""
     try:
         with block:
-            print(f"[+] ext sock send {content}")
             sock.send(content)
             r = sock.recv(900000).decode('latin-1')
-            print(f"[+] ext sock recv {r}")
             return json.loads(r)
     except BrokenPipeError as e:
-        print(f"[+] ext sock resend {str(e)}")
+        logging.info(f"[+] ext sock resend {str(e)}")
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
         users[flask.session["uuid"]].connect(flask.session["host"])
         return socksend(users[flask.session["uuid"]], content)
     except OSError:
-        print(f"[+] ext sock resend(oserror)")
+        logging.info(f"[+] ext sock resend(oserror)")
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
         users[flask.session["uuid"]].connect(flask.session["host"])
         return socksend(users[flask.session["uuid"]], content)
     except:
-        logging.error(traceback.format_exc())
         pass
 
     return r
@@ -150,7 +149,6 @@ def login():
             return flask.render_template("login.html", msg="invalid userid or userpw")
         
         queryResult = doLoginQuery(users[flask.session["uuid"]], flask.request.form["userid"], flask.request.form["userpw"])
-        print(f"[+]ext login query result {queryResult}")
         if "userid" in queryResult:
             flask.session["userid"] = queryResult["userid"]
             flask.session["isLogin"] = True
@@ -251,7 +249,7 @@ def getlist(content):
         return
 
     if content["from"] != flask.session["userid"]:
-        print(f"[x] {content['from']} != {flask.session['userid']}")
+        logging.info(f"[x] getlist {content['from']} != {flask.session['userid']}")
         resp = "[x] request from user is different from session"
         sioemit("getlist", resp, users[flask.session["userid"]])
         return
@@ -268,7 +266,7 @@ def getchatmsg(content):
         return
 
     if content["from"] != flask.session["userid"]:
-        print(f"[x] {content['from']} != {flask.session['userid']}")
+        logging.info(f"[x] getchatmsg {content['from']} != {flask.session['userid']}")
         resp = "[x] request from user is different from session"
         sioemit("getchatmsg", resp, flask.session["channel"])
         return
@@ -297,9 +295,8 @@ def roomadd(content):
         sioemit("roomadd", resp, flask.session["channel"])
         return
 
-
     if content["from"] != flask.session["userid"]:
-        print(f"[x] {content['from']} != {flask.session['userid']}")
+        logging.info(f"[x] roomadd {content['from']} != {flask.session['userid']}")
         resp = "[x] request from user is different from session"
         sioemit("roomadd", resp, flask.session["channel"])
         return
@@ -307,8 +304,9 @@ def roomadd(content):
     resp = socksend(users[flask.session["uuid"]], content)
 
     if 'msg' in resp:
-        sioemit("roomadd", resp, flask.session["channel"])        
-        sioemit("newchat", resp, users[resp["to"]])
+        sioemit("roomadd", resp, flask.session["channel"])
+        if resp["to"] in users:   
+            sioemit("newchat", resp, users[resp["to"]])
     else:
         sioemit("roomadd", resp, flask.session["channel"])
 
@@ -324,7 +322,7 @@ def imagesend(content):
     resp = ""
 
     if content["from"] != flask.session["userid"]:
-        print(f"[x] {content['from']} != {flask.session['userid']}")
+        logging.info(f"[x] imagesend {content['from']} != {flask.session['userid']}")
         resp = "[x] request from user is different from session"
         sioemit("uploadImageResult", resp, flask.session["channel"])
         return
@@ -347,9 +345,10 @@ def imagesend(content):
         with open(uploadFilePath, 'wb') as f:
             f.write(content['content'].encode())
         content.pop('content')
+        logging.info(f"[+] upload image - {uploadFilePath}")
     except:
-        logging.error(traceback.format_exc())
         resp = f'[x] upload "{uploadFilePath}" error'
+        logging.info(resp)
         sioemit("uploadImageResult", resp, flask.session["channel"])
         
     resp = socksend(users[flask.session["uuid"]], content)
@@ -386,7 +385,7 @@ def chatsend(content):
             content = json.loads(content)
 
         if content["from"] != flask.session["userid"]:
-            print(f"[x] {content['from']} != {flask.session['userid']}")
+            logging.info(f"[x] chatsend {content['from']} != {flask.session['userid']}")
             return "[x] request from user is different from session"
 
         if content["msg"] == "":
@@ -403,20 +402,26 @@ def chatsend(content):
         sioemit("newchat", resp, users[resp["to"]])
         sioemit("newchat", resp, users[resp["from"]])
 
+    if 'msg' in resp:
+        logging.info(f"[+] newchat - {resp['from']} -> {resp['to']} : {resp['msg']}")
+    
+
 
 @socket_io.on("connect")
 def connected():
-    print("connected")
+    logging.info("connected")
 
 @socket_io.on("disconnect")
 def disconnected():
-    print("disconnected")
-    users[flask.session["uuid"]].close()
-    print(users[flask.session["uuid"]])
+    logging.info("disconnected")
+    if "uuid" in flask.session:
+        if flask.session["uuid"] in users:
+            users[flask.session["uuid"]].close()
+            logging.info(f"disconnect {users[flask.session['uuid']]}")
 
 
 if __name__ == "__main__":
     try:
-        socket_io.run(app, host="0.0.0.0", debug=True, port=9090)
+        socket_io.run(app, host="0.0.0.0", port=9090)
     except Exception as ex:
-        print(ex)
+        pass

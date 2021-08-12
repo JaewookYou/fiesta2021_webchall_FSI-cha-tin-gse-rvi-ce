@@ -3,7 +3,7 @@ WORKDIR /app/ext_app
 RUN apt-get update -y
 RUN apt-get install -y python3-pip python3-dev build-essential
 RUN apt-get install -y net-tools procps
-RUN python3 -m pip install flask flask_socketio
+RUN python3 -m pip install flask flask_socketio simple_websocket
 RUN groupadd -g 999 user
 RUN useradd -r -u 999 -g user user
 USER user

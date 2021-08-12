@@ -103,6 +103,3 @@ p1 = convertFromHex("cb0000018da2bf0900000001ff000000000000000000000000000000000
 
 setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
 setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
-
-
-
