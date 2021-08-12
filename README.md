@@ -19,9 +19,11 @@
   ```
 
 ## 문제 운영방법
+
 - 시작 : `./run.sh&`
 - 일시정지 : `./stop.sh`
 - 로그 : `docker-compose logs -f`
+
 * run.sh 실행 시 30분마다 한번씩 서버가 전체 초기화되고 재실행됩니다.
 
 
@@ -64,7 +66,7 @@
 
 
 
-#### 외부망 소스코드 유출, 첫번째 플래그
+## 외부망 소스코드 유출, 첫번째 플래그
 
 * 우선 이미지를 보내는 기능을 살펴보면,
 * client단에서 `data:image/png` 형태로 변형하여 base64로 인코딩한채로 보낸다.
@@ -105,7 +107,7 @@ Date: Thu, 12 Aug 2021 10:40:43 GMT
 
 
 
-#### 내부망 소스코드 유출, 두번째 플래그
+## 내부망 소스코드 유출, 두번째 플래그
 
 * 우선 회원가입할때 프로필 이미지를 업로드하는 루틴부터 살펴보면, file content를 내부망으로 socket 통신을 통해 전송하기 때문에 내부망 서버에 파일
 * 16kb 미만의 프로필 이미지를 업로드하면 채팅할 때 프로필 이미지를 `/getProfileImage?id={id}` 형식으로 가져온다.
@@ -134,7 +136,7 @@ Date: Thu, 12 Aug 2021 10:40:43 GMT
 
 
 
-#### ssrf를 통해 mysql 임의 쿼리 실행, 마지막 플래그
+## ssrf를 통해 mysql 임의 쿼리 실행, 마지막 플래그
 
 * 이체 유출된 소스코드들을 통해 white-box로 분석할 수 있다.
 * 외부망과 내부망은 서로 socket을 가지고 통신을한다. 이때 사용하는 socket은 세션을 유지하기 위해 외부망 flask의 `users`라는 dict에 각 session의 uuid를 key로하여 메모리내에서 관리한다.
@@ -305,10 +307,7 @@ def chatsend(content):
   
 
   ```
-  0. server greeting (connection 시 서버가 전송)
-  1. send login request -> receive server seed
-  2. send mysql_native_password hash->receive auth ok
-  3. (if password match) send mysql query -> receive query result
+  0. server greeting (connection 시 서버가 전송)1. send login request -> receive server seed2. send mysql_native_password hash->receive auth ok3. (if password match) send mysql query -> receive query result
   ```
 
   * mysql에서 packet을 주고받는것은 network에서 Application Layer에 해당하는데, mysql이 패킷을 주고받는 특성상, 이어지는 여러개의 패킷을 한번에 보내도록 구성한다거나("AAAABBBBCCCC"), 하나의 패킷을 두개로 쪼개 전송("AA","AA")하는등의 동작이 가능하다.
@@ -341,11 +340,11 @@ def chatsend(content):
 
 
 
-#### 최종 Exploit Code 및 마지막 Flag
+## 최종 Exploit Code 및 마지막 Flag
 
 ![](https://arang.kr/fiesta/fiesta11.png)
 
-
+**마지막 플래그 `fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}`**
 
 ```js
 // author(arang)'s writeup
@@ -454,4 +453,3 @@ p1 = convertFromHex("cb0000018da2bf0900000001ff000000000000000000000000000000000
 setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
 setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
 ```
-
