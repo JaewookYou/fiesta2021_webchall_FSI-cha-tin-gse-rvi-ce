@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 mkdir -p /app/int_app/uploads/welcomebot/
 wget http://arang.kr/bboot.jpeg -O /app/int_app/uploads/welcomebot/welcomebot.png
 rm /etc/localtime

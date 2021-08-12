@@ -54,10 +54,7 @@
             <span class="time_date"> ${datestr}</span> </div>
         </div>
         `
-    } else {
-    	console.log("[x] ?? what's going on?");
-    }
-	  	
+    } 	  	
 		
 		$(".msg_history").append(appendHTML);
 		$(".msg_history").scrollTop($(".msg_history")[0].scrollHeight);
@@ -99,7 +96,7 @@
   async function getProfileImage(id) {
   	profileImage = sessionStorage.getItem(id)
 		if(profileImage == null){
-			profileImage = await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r});
+			profileImage = JSON.parse(await fetch("/getProfileImage?id="+id).then(r=>r.text()).then(r=>{return r}))['content'];
 			sessionStorage.setItem(id,profileImage)
 		}
 		return profileImage

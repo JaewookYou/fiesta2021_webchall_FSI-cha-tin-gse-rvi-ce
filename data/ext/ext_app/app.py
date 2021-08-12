@@ -1,5 +1,7 @@
 #-*- coding: latin-1 -*-
 ### this is external server's app.py
+### and below is the first flag
+### fiesta{th1s_1s_the_st4rt_0f_th3_ch4ll3ng3}
 import flask_socketio
 import flask
 import datetime, uuid, socket, json, threading, os, base64, re
@@ -189,16 +191,14 @@ def register():
             
         if type(fileContent) == bytes:
             fileContent = fileContent.decode()
-
         resp = doRegisterQuery(
             users[flask.session["uuid"]], 
             flask.request.form["userid"], 
             flask.request.form["userpw"], 
             profileImageFile.filename,
             fileContent 
-        )
-        if "[+] register success" == resp:
-            resp = "false"
+        )        
+
         return flask.redirect(flask.url_for("login", msg=resp))
 
 @app.route("/getProfileImage", methods=["GET"])
@@ -250,17 +250,11 @@ def getlist(content):
         sioemit("getlist", resp, flask.session["channel"])
         return
 
-    try:
-        if type(content) != dict:
-            content = content.encode('latin-1')
-            content = json.loads(content)
-        if content["from"] != flask.session["userid"]:
-            print(f"[x] {content['from']} != {flask.session['userid']}")
-            resp = "[x] request from user is different from session"
-            sioemit("getlist", resp, users[flask.session["userid"]])
-            return
-    except Exception as e:
-        pass
+    if content["from"] != flask.session["userid"]:
+        print(f"[x] {content['from']} != {flask.session['userid']}")
+        resp = "[x] request from user is different from session"
+        sioemit("getlist", resp, users[flask.session["userid"]])
+        return
 
     resp = socksend(users[flask.session["uuid"]], content)
 
@@ -273,17 +267,9 @@ def getchatmsg(content):
         sioemit("getchatmsg", resp, flask.session["channel"])
         return
 
-    try:
-        if type(content) != dict:
-            content = content.encode('latin-1')
-            content = json.loads(content)
-        if content["from"] != flask.session["userid"]:
-            print(f"[x] {content['from']} != {flask.session['userid']}")
-            resp = "[x] request from user is different from session"
-            sioemit("getchatmsg", resp, flask.session["channel"])
-            return
-    except Exception as e:
-        resp = "[x] error with verifying data/user"
+    if content["from"] != flask.session["userid"]:
+        print(f"[x] {content['from']} != {flask.session['userid']}")
+        resp = "[x] request from user is different from session"
         sioemit("getchatmsg", resp, flask.session["channel"])
         return
 
@@ -311,31 +297,18 @@ def roomadd(content):
         sioemit("roomadd", resp, flask.session["channel"])
         return
 
-    try:
-        if type(content) != dict:
-            content = content.encode('latin-1')
-            content = json.loads(content)
-        if content["from"] != flask.session["userid"]:
-            print(f"[x] {content['from']} != {flask.session['userid']}")
-            resp = "[x] request from user is different from session"
-            sioemit("roomadd", resp, flask.session["channel"])
-            return
-    except Exception as e:
-        resp = "[x] error with verifying data/user"
+
+    if content["from"] != flask.session["userid"]:
+        print(f"[x] {content['from']} != {flask.session['userid']}")
+        resp = "[x] request from user is different from session"
         sioemit("roomadd", resp, flask.session["channel"])
         return
 
     resp = socksend(users[flask.session["uuid"]], content)
 
     if 'msg' in resp:
-        sioemit("roomadd", resp, flask.session["channel"])
-
-        if type(resp) != dict:
-            resp = {"result": 0, "msg":resp}
-        else:
-            resp = {"result": 1, "msg":resp}
-        
-        sioemit("newchat", resp, users[resp["msg"]["to"]])
+        sioemit("roomadd", resp, flask.session["channel"])        
+        sioemit("newchat", resp, users[resp["to"]])
     else:
         sioemit("roomadd", resp, flask.session["channel"])
 
@@ -402,6 +375,11 @@ def chatsend(content):
         sioemit("newchat", resp, flask.session["channel"])
         return
 
+    if "sendtome" in content:
+        sendtome_flag = True
+    else:
+        sendtome_flag = False
+
     try:
         if type(content) != dict:
             content = content.encode('latin-1')
@@ -415,29 +393,16 @@ def chatsend(content):
             return "[x] blank content. please input content"
 
     except Exception as e:
-        logging.error(traceback.format_exc())
         pass
-
-    if b"sendtome" in content:
-        sendtome_flag = True
-    else:
-        sendtome_flag = False
 
     resp = socksend(users[flask.session["uuid"]], content)
 
-    if type(resp) != dict:
-        resp = {"result": 0, "msg":resp}
+    if sendtome_flag:
+        sioemit("newchat", resp, users[flask.session["userid"]])
     else:
-        resp = {"result": 1, "msg":resp}
-    
-    try:
-        if sendtome_flag:
-            sioemit("newchat", resp, users[flask.session["userid"]])
-        else:
-            sioemit("newchat", resp, users[resp["msg"]["to"]])
-            sioemit("newchat", resp, users[resp["msg"]["from"]])
-    except:
-        logging.error(traceback.format_exc())
+        sioemit("newchat", resp, users[resp["to"]])
+        sioemit("newchat", resp, users[resp["from"]])
+
 
 @socket_io.on("connect")
 def connected():

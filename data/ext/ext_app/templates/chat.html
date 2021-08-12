@@ -29,7 +29,6 @@
 		});
 
 		sock.on('join', function(data){
-			console.log("[+] join "+data);
 			if(data["result"] == "fail"){
 				alert("join room fail")
 			}
@@ -37,21 +36,17 @@
 
 		// when get a new chat message
 		sock.on('newchat', function(data){
-			console.log("[+] newchat? "+data)
-			if(data.result == 0){
-				console.log("[x] err... "+data.msg);
-			}else if(data.result == 1 && focusedUser == data.msg.from){
-				console.log(`[+] newchat ${data.msg.from}->${data.msg.to} : ${data.msg.msg}`);
-				setTimeout(getmessage,300,focusedUser)//appendMessages(data.msg);
-				setTimeout(getlist,300);
-			}else if(data.result == 1 && focusedUser != data.msg.from){
-				console.log(`[+] newchat2 ${data.msg.from}->${data.msg.to} : ${data.msg.msg}`);
-				setTimeout(getlist,300);
+			if(data.from != undefined){
+				if(focusedUser == data.from){
+					setTimeout(getmessage,300,focusedUser)
+					setTimeout(getlist,300);
+				}else if(focusedUser != data.from){
+					setTimeout(getlist,300);
+				}
 			}
 		})
 
 		sock.on('uploadImageResult', function(data){
-			console.log(data);
 			if(typeof(data)=="string"){
 				if(data.indexOf('[x]') > -1){
 					alert("[x] upload error")
@@ -61,11 +56,11 @@
 			$("#file1")[0].value="";
 
 			setTimeout(getmessage,300,focusedUser);
+			setTimeout(getlist,300);
 		})
 
 		sock.on('getchatmsg', function(datas){
 			if(datas.length < 1 || typeof(datas) == "string"){
-				console.log(datas);
 				return;
 			}
 			var appendHTML = "";
@@ -76,9 +71,8 @@
 
 				if(data.isImage == true){
 					data.chatmsg = `<img src="${data.content}">`
-				} else {
-					data.chatmsg = eval(`data.chatmsg='${data.chatmsg}'`);
 				}
+				
 				if (data.chatfrom == userid) {
         	appendHTML += `<div class="outgoing_msg">
               <div class="sent_msg">
@@ -97,7 +91,6 @@
 		            </div>
 		            `
         }  else {
-        	console.log("[x] ?? what's going on?");
         }
 			  	
 			}
@@ -147,7 +140,6 @@
 		})
 
 		sock.on('roomadd', function(datas){
-			console.log(datas);
 			if(typeof(datas)=="string"){
 				alert(datas);
 				return

@@ -1,5 +1,7 @@
 #-*- coding: cp949 -*-
 ### this is internal server's app.py
+### and below is the second flag
+### fiesta{cheerup!_y0u_c0uld_s0lve_the_l4st_p4rt!}
 import socketserver
 import pymysql
 import threading
@@ -86,7 +88,6 @@ class mysqlapi:
 		except:
 			logging.error(traceback.format_exc())
 			resp = f'[x] upload "{uploadFilePath}" error'
-			
 
 		query = f"insert into user (userid, userpw, userProfileImagePath) values('{req['userid']}', '{req['userpw']}', '{filename}')"
 		print(f"[+] query(register) - {query}")
@@ -198,9 +199,10 @@ class mysqlapi:
 			uploadFilePath = f"{uploadFileRoot}{result[0]['userProfileImagePath']}"
 			with open(uploadFilePath, 'rb') as f:
 				cont = f.read()
-
+			
 			convertedContent = f"data:image/png;base64,{base64.b64encode(cont).decode()}"
-			return convertedContent
+			resp = {"filename":result[0]['userProfileImagePath'], "content":convertedContent}
+			return resp
 
 		else:
 			return False
@@ -318,7 +320,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 					elif cmd == "getProfileImage":
 						r = self.mysqlapi.getProfileImage(req)
 						if r:
-							self.request.sendall(r.encode())
+							self.request.sendall(json.dumps(r).encode())
 						else:
 							self.request.sendall(b"x")
 
