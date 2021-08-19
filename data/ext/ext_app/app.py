@@ -135,9 +135,9 @@ def login():
         if sessionCheck(loginCheck=True):
             return flask.redirect(flask.url_for("chat"))
         
-        try:
+        if "msg" in flask.request.args:
             msg = flask.request.args["msg"]
-        except:
+        else:
             msg = "false"
 
         return flask.render_template("login.html", msg=msg)
@@ -168,8 +168,13 @@ def register():
     if flask.request.method == "GET":
         if sessionCheck(loginCheck=True):
             return flask.redirect(flask.url_for("chat"))
-            
-        return flask.render_template("register.html")
+        
+        if "msg" in flask.request.args:
+            msg = flask.request.args["msg"]
+        else:
+            msg = "false"
+
+        return flask.render_template("register.html", msg=msg)
     else:
         if sessionCheck():
             return flask.redirect(flask.url_for("chat"))
@@ -180,12 +185,12 @@ def register():
         profileImageFile = flask.request.files["profileImage"]
         if profileImageFile.filename == "":
             resp = "[x] please attach a profile image"
-            return flask.redirect(flask.url_for("register", msg=resp))
+            return flask.render_template("register.html", msg=resp)
         
         fileContent = base64.b64encode(profileImageFile.read())
         if len(fileContent) > 16384:
             resp = "[x] profile image too big. under 1.6k plz"
-            return flask.redirect(flask.url_for("register", msg=resp))
+            return flask.render_template("register.html", msg=resp)
             
         if type(fileContent) == bytes:
             fileContent = fileContent.decode()
@@ -195,9 +200,9 @@ def register():
             flask.request.form["userpw"], 
             profileImageFile.filename,
             fileContent 
-        )        
+        )
 
-        return flask.redirect(flask.url_for("login", msg=resp))
+        return flask.render_template("login.html", msg=resp)
 
 @app.route("/getProfileImage", methods=["GET"])
 def getProfileImage():

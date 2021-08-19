@@ -60,7 +60,6 @@ async function step2(serverSeed){
 	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
 
 	var packet = p1+p2;
-	console.log(btoa(packet))
 	setTimeout(function(){console.log("send 3 round");sock.emit("chatsend", packet);},500)
 	setTimeout(function(){console.log("send 4 round");sock.emit("chatsend", "sendtome");},1500)
 }
@@ -82,8 +81,6 @@ sock.on('join', function(data){
 
 // when get a new chat message
 sock.on('newchat', function(data){
-	//console.log(data.msg);
-	//var result = ab2str(data.msg);
 	var result = data;
 	console.log("[+] newchat "+result);
 	round += 1
