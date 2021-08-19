@@ -4,10 +4,10 @@
 
 - 출제자 : 보안평가2팀 주임 유재욱
 - 출제분야 : 웹해킹
-- 총배점 : 450점 or 500점
-- Flag1(75점) : `fiesta{th1s_1s_the_st4rt_0f_th3_ch4ll3ng3}`
-- Flag2(75점) : `fiesta{cheerup!_y0u_c0uld_s0lve_the_l4st_p4rt!}`
-- Flag3(350점) : `fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}`
+- 총배점 : 600점
+- Flag1(100점) : `fiesta{ok_y0u_g0t_the_ext_server's_code!}`
+- Flag2(100점) : `fiesta{congrat_y0u_g0t_all_of_th3_ext&int_server's_code!}`
+- Flag3(400점) : `fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}`
 
 * Description
 
