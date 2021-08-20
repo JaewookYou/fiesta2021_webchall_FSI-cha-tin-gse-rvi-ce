@@ -4,8 +4,8 @@
 ### fiesta{congrat_y0u_g0t_all_of_th3_ext&int_server's_code!}
 import socketserver
 import pymysql
-import threading
-import json, re, base64, os, datetime, time
+import json, re, base64, os, datetime, time, signal, errno, threading
+from functools import wraps
 import logging, traceback
 logging.basicConfig(level=logging.INFO)
 
@@ -19,7 +19,6 @@ def secureFileName(filename):
 
 def whatTimeIsIt():
 	return datetime.datetime.strftime(datetime.datetime.now(),"%Y-%m-%d %H:%M:%S")
-
 
 class mysqlapi:
 	def __init__(self):
@@ -252,7 +251,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 	            # either 0 or end of data
 	            break
 	    return data
-		
+	
 	def handle(self):
 		try:
 			self.mysqlapi.conn.open
@@ -267,8 +266,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 			if not self.data:
 				break
 			try:
-				with lock:
+				if 1:
 					req = json.loads(self.data)
+					logging.info(req)
 					cmd = req["command"]
 
 					if cmd == "login":
@@ -330,9 +330,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
 					else:
 						self.request.sendall(b"[x] please input right command")
-				
 			except:
 				logging.error(traceback.format_exc())
+				logging.info(traceback.format_exc())
 				self.request.sendall(b"[x] internal server error - exception")
 
 	def finish(self):

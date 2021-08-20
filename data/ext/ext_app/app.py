@@ -4,9 +4,9 @@
 ### fiesta{ok_y0u_g0t_the_ext_server's_code!_lets_dig_the_2nd_flag!}
 import flask_socketio
 import flask
-import datetime, uuid, socket, json, threading, os, base64, re
+import datetime, uuid, socket, json, threading, os, base64, re, time, signal, errno
+from functools import wraps
 import logging, traceback
-import ssl
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
 
@@ -55,15 +55,6 @@ def secureFileName(filename):
     return filename
 
 def sessionCheck(loginCheck=False):   
-    if loginCheck:
-        if "isLogin" not in flask.session:
-            return False
-        else:
-            return True
-
-    if "isLogin" in flask.session:
-        return True
-
     if "uuid" not in flask.session:
         flask.session["uuid"] = str(uuid.uuid1())
 
@@ -73,28 +64,70 @@ def sessionCheck(loginCheck=False):
         users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         users[flask.session["uuid"]].connect(flask.session["host"])
 
+    if loginCheck:
+        if "isLogin" not in flask.session:
+            return False
+        else:
+            return True
+
+    if "isLogin" in flask.session:
+        return True
+    
     return False
 
+def sockError(e):
+    if "errcnt" not in flask.session:
+        flask.session["errcnt"] = 1
+
+    logging.info(f"[+] ext sock resend {flask.session['errcnt']} : {str(e)}")
+
+    if flask.session["errcnt"] < 3:
+        flask.session["errcnt"] += 1
+        return False
+    elif flask.session["errcnt"] >= 3:
+        users[flask.session["uuid"]].close()
+        users.pop(flask.session['uuid'])
+        flask.session.pop('errcnt', False)
+        sessionCheck()
+        logging.error('[x] sock resend max try exceed')
+        return '[x] sock resend max try exceed'
 
 def socksend(sock, content):
+    if "errcnt" in flask.session:
+        if flask.session["errcnt"] >= 3:
+            users[flask.session["uuid"]].close()
+            users.pop(flask.session['uuid'])
+            flask.session.pop('errcnt', False)
+            logging.error('[x] sock resend max try exceed, try again plz')
+            sessionCheck()
+            return '[x] sock resend max try exceed, try again plz'
+
     if type(content) == dict:
         content = json.dumps(content).encode()+b"\n"
+    
     r=""
+
     try:
         with block:
             sock.send(content)
+            sock.settimeout(2)
             r = sock.recv(900000).decode('latin-1')
             return json.loads(r)
     except BrokenPipeError as e:
-        logging.info(f"[+] ext sock resend {str(e)}")
-        users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-        users[flask.session["uuid"]].connect(flask.session["host"])
-        return socksend(users[flask.session["uuid"]], content)
-    except OSError:
-        logging.info(f"[+] ext sock resend(oserror)")
-        users[flask.session["uuid"]] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)        
-        users[flask.session["uuid"]].connect(flask.session["host"])
-        return socksend(users[flask.session["uuid"]], content)
+        if sockError(e):
+            return '[x] sock resend max try exceed, plz try again'
+        if flask.session["uuid"] in users and flask.session["errcnt"] < 3:
+            return socksend(users[flask.session["uuid"]], content)
+    except OSError as e:
+        if sockError(e):
+            return '[x] sock resend max try exceed, plz try again'
+        if flask.session["uuid"] in users and flask.session["errcnt"] < 3:
+            return socksend(users[flask.session["uuid"]], content)
+    except socket.timeout:
+        if sockError(e):
+            return '[x] sock resend max try exceed, plz try again'
+        if flask.session["uuid"] in users and flask.session["errcnt"] < 3:
+            return socksend(users[flask.session["uuid"]], content)
     except:
         pass
 
@@ -119,6 +152,11 @@ def index():
 @app.route("/logout")
 def logout():
     flask.session.pop('isLogin', False)
+    if "uuid" in flask.session:
+        if flask.session["uuid"] in users:
+            users[flask.session["uuid"]].close()
+            users.pop(flask.session['uuid'])
+            logging.info(f"logout {users[flask.session['uuid']]}")
     return flask.redirect(flask.url_for("login"))
 
 @app.route("/chat", methods=["GET"])
@@ -160,7 +198,7 @@ def login():
             resp.set_cookie('uuid', flask.session["uuid"])
             return resp
         else:
-            return flask.render_template("login.html", msg="login failed")
+            return flask.render_template("login.html", msg=queryResult)
 
     
 @app.route("/register", methods=["GET","POST"])
@@ -216,6 +254,8 @@ def getProfileImage():
         "userid":userid
     }
     r= socksend(users[flask.session["uuid"]], reqPacket)
+    if 'content' not in r:
+        r = 'x'
     return r
 
 
@@ -422,6 +462,7 @@ def disconnected():
     if "uuid" in flask.session:
         if flask.session["uuid"] in users:
             users[flask.session["uuid"]].close()
+            users.pop(flask.session['uuid'])
             logging.info(f"disconnect {users[flask.session['uuid']]}")
 
 
