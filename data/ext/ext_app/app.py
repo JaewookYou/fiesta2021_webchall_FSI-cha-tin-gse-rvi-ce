@@ -1,7 +1,7 @@
 #-*- coding: latin-1 -*-
 ### this is external server's app.py
 ### and below is the first flag
-### fiesta{th1s_1s_the_st4rt_0f_th3_ch4ll3ng3}
+### fiesta{ok_y0u_g0t_the_ext_server's_code!_lets_dig_the_2nd_flag!}
 import flask_socketio
 import flask
 import datetime, uuid, socket, json, threading, os, base64, re

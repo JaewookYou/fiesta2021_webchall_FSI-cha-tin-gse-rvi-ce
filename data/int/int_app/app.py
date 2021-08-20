@@ -1,7 +1,7 @@
 #-*- coding: cp949 -*-
 ### this is internal server's app.py
 ### and below is the second flag
-### fiesta{cheerup!_y0u_c0uld_s0lve_the_l4st_p4rt!}
+### fiesta{congrat_y0u_g0t_all_of_th3_ext&int_server's_code!}
 import socketserver
 import pymysql
 import threading
