@@ -117,7 +117,7 @@ class mysqlapi:
 			return False
 
 	def updateRecentChat(self, req):
-		query = f"update chatroom set lastmsg='{req['msg'][:30]}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
+		query = f"update chatroom set lastmsg='{req['msg']}', lastdate='{req['date']}' where (user_a='{req['from']}' and user_b='{req['to']}') or (user_a='{req['to']}' and user_b='{req['from']}')"
 		self.cursor.execute(query)
 		self.conn.commit()
 
@@ -136,7 +136,6 @@ class mysqlapi:
 				return "[x] create chat room error"
 
 		self.updateRecentChat(req)
-
 		self.insertChat(req)
 
 		return req
@@ -229,7 +228,6 @@ class mysqlapi:
 					req['msg'] = f"{req['from']} make room with {req['to']}! check this"
 				
 				self.updateRecentChat(req)
-
 				self.insertChat(req)
 				return req
 		else:
