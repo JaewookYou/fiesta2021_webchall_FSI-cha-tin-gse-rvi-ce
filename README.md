@@ -21,9 +21,9 @@
 
 ## 문제 운영방법
 
-- 시작 : `./run.sh&`
+- 시작 : `nohup ./run.sh&`
 - 일시정지 : `./stop.sh`
-- 로그 : `docker-compose logs -f`
+- 로그 : `nohup ./logs.sh` 이후 `tail -f ./logs.txt`
 
 * run.sh 실행 시 30분마다 한번씩 서버가 전체 초기화되고 재실행됩니다.
 
