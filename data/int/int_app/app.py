@@ -145,6 +145,8 @@ class mysqlapi:
 		req['date'] = whatTimeIsIt()
 		req['msg'] = req['filename']
 		
+		logging.info(f"[+] image send - {req['from']}->{req['to']} ({req['msg']})")
+		
 		chatroomNum = self.getChatRoom(req)
 		if not chatroomNum:
 			if not self.createChatRoom(req):
@@ -266,7 +268,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 			try:
 				if 1:
 					req = json.loads(self.data)
-					logging.info(req)
 					cmd = req["command"]
 
 					if cmd == "login":

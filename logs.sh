@@ -1,4 +1,5 @@
 #!/bin/bash
+pkill logs.sh
 while true
 do
 	date >> logs.txt

@@ -105,6 +105,7 @@ def socksend(sock, content):
     if type(content) == dict:
         content = json.dumps(content).encode()+b"\n"
     
+    logging.info(f"[+] ext sock send - {sock} : {content}")
     r=""
 
     try:
