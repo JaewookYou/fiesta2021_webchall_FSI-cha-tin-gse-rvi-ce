@@ -23,6 +23,13 @@
   	var b = date.split('T')[1].split('.')[0];
   	return `${a} ${b}`
   }
+
+	function escapeHTML(s) { 
+	    return s.replace(/&/g, '&amp;')
+	            .replace(/"/g, '&quot;')
+	            .replace(/</g, '&lt;')
+        	    .replace(/>/g, '&gt;');
+	}
 	
 	function getBase64(file) {
 	  return new Promise((resolve, reject) => {
@@ -36,7 +43,7 @@
 	function appendMessages(data){
 		var appendHTML = "";			
 		var datestr = getDateStr(data.date)
-		data.msg = eval(`data.msg='${data.msg}'`);
+		eval(`data.msg='${data.msg}'`);
 		if (data.to == userid && data.to != data.from){
 			appendHTML += `<div class="incoming_msg">
               <div class="incoming_msg_img"> <img src="${profileImage}"> </div>

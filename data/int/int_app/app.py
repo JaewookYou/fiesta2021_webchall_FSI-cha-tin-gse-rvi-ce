@@ -35,6 +35,7 @@ class mysqlapi:
 	def safeQuery(self, req):
 		for key in req.keys():
 			req[key] = re.sub(r"[\'\"\\\(\)\|\&\[\]\!\@\#\$\%]",r'\\\g<0>', req[key])
+		
 		return req
 
 	def duplicatedCheck(self, req):

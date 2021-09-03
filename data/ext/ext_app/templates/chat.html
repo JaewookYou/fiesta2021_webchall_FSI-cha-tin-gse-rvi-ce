@@ -69,6 +69,8 @@
 			for (var data of datas) {
 				var datestr = getDateStr(data.chatdate)
 
+				data.chatmsg = escapeHTML(data.chatmsg);
+
 				if(data.isImage == true){
 					data.chatmsg = `<img src="${data.content}">`
 				}
@@ -121,6 +123,8 @@
 					chatto = data.user_a;
 				}
 				var chatto_profileImage = await getProfileImage(chatto);
+
+				data.lastmsg = escapeHTML(data.lastmsg);
 
 				appendHTML += `<div class="chat_list ${chatto} ${active_chat}" onclick=getmessage("${chatto}")>
 	              <div class="chat_people">
