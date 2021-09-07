@@ -379,7 +379,7 @@ async function step2(serverSeed){
   ```
   1. [TCP reassemble A] login request 전송
   2. [TCP reassemble A] sendtome(8byte) 전송
-  3. [B] password hash + [TCP reassemble C] query request(+#) 전송
+  3. [B] password hash + [TCP reassemble C] query request(+#sendtome) 전송
   4. [TCP reassemble C] sendtome(8byte) 전송
   ```
 
