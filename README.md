@@ -12,7 +12,9 @@
 * Description
 
   ```tex
-  A사는 최근 채팅서비스를 개발하여 제공하는 솔루션사 B사로부터 채팅서비스를 구매하여 A사의 서버와 통합하였는데... A사의 내부 보안 취약점 분석팀 직원인 당신에게 이 통합된 채팅서비스가 안전한지 알아보라는 임무가 주어졌다. 채팅서비스 내부망 데이터베이스 유출 가능성이 있는지 내부 데이터베이스에 존재하는 Flag를 획득하여 증명해보자.
+  A사는 최근 채팅서비스를 개발하여 제공하는 솔루션사 B사로부터 채팅서비스를 구매하여 A사의 서버와 통합하였는데... 
+  A사의 내부 보안 취약점 분석팀 직원인 당신에게 이 통합된 채팅서비스가 안전한지 알아보라는 임무가 주어졌다. 
+  채팅서비스 내부망 데이터베이스 유출 가능성이 있는지 내부 데이터베이스에 존재하는 Flag를 획득하여 증명해보자.
   
    * 본 문제의 Flag는 총 3개입니다. 최종 Flag는 내부 데이터베이스의 flag 테이블에 존재합니다.
    * 서버는 30분마다 초기화됩니다.
@@ -314,8 +316,8 @@ def chatsend(content):
   3. (if password match) send mysql query -> receive query result
   ```
 
-  * mysql에서 packet을 주고받는것은 network에서 Application Layer에 해당하는데, mysql이 패킷을 주고받는 특성상, 이어지는 여러개의 패킷을 한번에 보내도록 구성한다거나("AAAABBBBCCCC"), 하나의 패킷을 두개로 쪼개 전송("AA","AA")하는등의 동작이 가능하다.
-  * 이점을 이용하여 상기 단계로 구성되는 mysql connection & query packet을 sendtome라는 문자열이 각 패킷에 들어갈 수 있게 구성하여야하는데, 중간에 server seed를 받아와 이를 통해 password hash를 생성해야하는 과정이 들어가있기 때문에 최소 2단계 이상으로 패킷을 나누어 구성하되 "sendtome" 문자열이 패킷안에 들어가게끔 해야한다.
+  * mysql에서 packet을 주고받는것은 network에서 Application Layer에 해당하는데, mysql이 패킷을 주고받는 특성상, `이어지는 여러개의 패킷을 한번에 보내도록 구성한다거나("AAAABBBBCCCC")`, `하나의 패킷을 두개로 쪼개 전송("AA","AA")`하는등의 동작이 가능하다.
+  * 이점을 이용하여 상기 단계로 구성되는 mysql connection & query packet을 **sendtome**라는 문자열이 각 패킷에 들어갈 수 있게 구성하여야하는데, 중간에 server seed를 받아와 이를 통해 password hash를 생성해야하는 과정이 들어가있기 때문에 최소 2단계 이상으로 패킷을 나누어 구성하되 **sendtome** 문자열이 패킷안에 들어가게끔 해야한다.
   * 다만 현재 socket을 통해 데이터를 주고받는 과정이 send->recv->send->recv 와 같이 1:1로만 주고받고 있기 때문에, 1번단계에서 login request를 보내더라도 첫 recv에선 connection시 서버가 전송하는 server greeting 패킷이 수신되게 된다.
   * 따라서 server seed를 받아오기 위해선 send 이후 recv가 두번 실행되어야 하는데, 이를 이루기 위하여 위에서 설명한 `하나의 패킷을 두개로 쪼개 전송("AA","AA")하는` 방법을 사용한다.
 
