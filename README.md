@@ -368,7 +368,7 @@ async function step2(serverSeed){
 ```
   * 이로써 server seed를 얻었으므로 내부망 코드에서 알아낸 db 패스워드와 server seed를 조합하여 패스워드 해시를 만들어낸다.
   * 이번엔 두개의 패킷을 하나로 합쳐 한번에 보내는것으로("AAAABBBB") 패스워드 해시를 보내는 패킷과 query request 패킷을 하나로 합쳐보내며 query request 패킷의 요청 길이를 조작하여 sendtome(8byte)를 보낼 길이만큼 설정한다
-  * query를 `select * from flag#`과 같이 끝에 주석처리를하여 뒤에 sendtome가 오더라도 정상적인 쿼리가 되도록 세팅 후 보내면, 서버와 주고받는 과정으로 flag가 날아오게된다
+  * query를 `select * from flag#sendtome`와 같이 끝에 주석처리를하여 뒤에 sendtome가 오더라도 정상적인 쿼리가 되도록 세팅 후 보내면, 서버와 주고받는 과정으로 flag가 날아오게된다
 
   
 
