@@ -308,7 +308,10 @@ def chatsend(content):
   
 
   ```
-  0. server greeting (connection 시 서버가 전송)1. send login request -> receive server seed2. send mysql_native_password hash->receive auth ok3. (if password match) send mysql query -> receive query result
+  0. server greeting (connection 시 서버가 전송)
+  1. send login request -> receive server seed
+  2. send mysql_native_password hash->receive auth ok
+  3. (if password match) send mysql query -> receive query result
   ```
 
   * mysql에서 packet을 주고받는것은 network에서 Application Layer에 해당하는데, mysql이 패킷을 주고받는 특성상, 이어지는 여러개의 패킷을 한번에 보내도록 구성한다거나("AAAABBBBCCCC"), 하나의 패킷을 두개로 쪼개 전송("AA","AA")하는등의 동작이 가능하다.
