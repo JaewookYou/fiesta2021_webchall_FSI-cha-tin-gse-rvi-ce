@@ -1,4 +1,4 @@
-# fiest2021_webchall
+# fiesta2021_webchall
 
 ## 문제명 : FSI cha tin gse rvi ce!
 
