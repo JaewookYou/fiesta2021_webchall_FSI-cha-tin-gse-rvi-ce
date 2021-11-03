@@ -141,7 +141,7 @@ Date: Thu, 12 Aug 2021 10:40:43 GMT
 
 ## ssrf를 통해 mysql 임의 쿼리 실행, 마지막 플래그
 
-* 이체 유출된 소스코드들을 통해 white-box로 분석할 수 있다.
+* 이제 유출된 소스코드들을 통해 white-box로 분석할 수 있다.
 * 외부망과 내부망은 서로 socket을 가지고 통신을한다. 이때 사용하는 socket은 세션을 유지하기 위해 외부망 flask의 `users`라는 dict에 각 session의 uuid를 key로하여 메모리내에서 관리한다.
 
 ```python
